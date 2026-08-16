@@ -124,32 +124,30 @@ export function alternates(): ReadonlyArray<readonly [Locale | 'x-default', stri
  * "planned, with a download link" unrepresentable instead of merely discouraged — which is
  * the whole risk of a page that advertises platforms it cannot yet ship.
  */
+type DownloadFacts = {
+  readonly id: string;
+  readonly os: string;
+  readonly arch: string;
+  /** The line under the platform's name. A key, so the card is one fact in two languages. */
+  readonly noteKey: StringKey;
+};
+
 export type Download =
-  | {
-      readonly status: 'available';
-      readonly id: string;
-      readonly os: string;
-      readonly arch: string;
-      readonly href: string;
-    }
-  | {
-      readonly status: 'planned';
-      readonly id: string;
-      readonly os: string;
-      readonly arch: string;
-    };
+  | (DownloadFacts & { readonly status: 'available'; readonly href: string })
+  | (DownloadFacts & { readonly status: 'planned' });
 
 /**
  * Every platform the page speaks about. Each available entry points at the mutable `latest`
  * alias derived from `dist-paths.ts`, so cutting a release never means editing HTML; a planned
  * one is here to hold its place, and gains an `href` the day a pipeline produces one.
  */
-export const DOWNLOADS: readonly Download[] = [
+export const DOWNLOADS = [
   {
     status: 'available',
     id: 'macos-arm64',
     os: 'macOS',
     arch: 'Apple Silicon',
+    noteKey: 'macNote',
     href: `/${latestKey(latestArtifactName(TARGETS['darwin-arm64']))}`,
   },
   {
@@ -157,10 +155,18 @@ export const DOWNLOADS: readonly Download[] = [
     id: 'windows-x64',
     os: 'Windows',
     arch: 'x86-64',
+    noteKey: 'windowsNote',
     href: `/${latestKey(latestArtifactName(TARGETS['win32-x64']))}`,
   },
-  { status: 'planned', id: 'linux-x64', os: 'Linux', arch: 'x86-64' },
-];
+  { status: 'planned', id: 'linux-x64', os: 'Linux', arch: 'x86-64', noteKey: 'linuxNote' },
+] as const satisfies readonly Download[];
+
+/**
+ * The ids, as a type. Derived from the registry rather than declared beside it, so anything
+ * keyed by platform — the card artwork in `render.ts` is the one that exists today — fails to
+ * compile when a platform is added or removed, instead of throwing halfway through a build.
+ */
+export type DownloadId = (typeof DOWNLOADS)[number]['id'];
 
 /**
  * Which download the hero button offers before it knows what the visitor is running.
@@ -171,9 +177,9 @@ export const DOWNLOADS: readonly Download[] = [
  * browser — see `home.html` — so this is the answer given to a crawler, and to anyone whose
  * platform is not one we ship.
  */
-export const PRIMARY_DOWNLOAD_ID = 'macos-arm64';
+export const PRIMARY_DOWNLOAD_ID: DownloadId = 'macos-arm64';
 
-export function downloadById(id: string): Extract<Download, { status: 'available' }> {
+export function downloadById(id: DownloadId): Extract<Download, { status: 'available' }> {
   const entry = DOWNLOADS.find((candidate) => candidate.id === id);
   if (entry?.status !== 'available') {
     throw new Error(`no available download with id ${id}`);

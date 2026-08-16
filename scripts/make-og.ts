@@ -89,7 +89,7 @@ export function renderCard(template: string, root: string): string {
         accent: BRAND_BLUE,
         width: String(OG_IMAGE.width),
         height: String(OG_IMAGE.height),
-        kicker: strings.heroPillMeta,
+        kicker: strings.heroTagMeta,
         claim: strings.heroClaim,
         rows: cardRows(),
         host: new URL(ORIGIN).host,

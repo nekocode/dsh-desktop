@@ -3,18 +3,18 @@
   <header class="hero">
     <div class="container hero-grid">
       <div class="hero-copy">
-        <p class="pill rise" style="--i: 0">
+        <p class="tag rise" style="--i: 0">
           <span class="pulse" aria-hidden="true"></span>
           <!-- Filled from the live manifest at the end of this file. A dash rather than a
              hardcoded number: an obviously pending placeholder beats a quietly stale fact. -->
-          <span class="version">{{versionFallback}}</span> · {{heroPillMeta}}
+          <span class="version">{{versionFallback}}</span> · {{heroTagMeta}}
         </p>
         <h1 class="wordmark rise" style="--i: 1"><span>DeepSeek</span><span>Harness</span></h1>
         <p class="claim rise" style="--i: 2">{{heroClaim}}</p>
         <p class="lede rise" style="--i: 3">{{heroLede}}</p>
         <!-- Rendered for macOS and switched to Windows in the browser (script at the end of
            this file). The served markup is the one a crawler and a no-JS visitor get, and the
-           full platform table below is always correct regardless. -->
+           full set of platform cards below is always correct regardless. -->
         <div class="cta rise" style="--i: 4">
           <a
             class="btn"
@@ -22,7 +22,6 @@
             href="{{dmgHref}}"
             data-windows-href="{{windowsHref}}"
             data-windows-label="{{ctaDownloadWindows}}"
-            ><span class="btn-arrow" aria-hidden="true">↓</span
             ><span class="btn-label">{{ctaDownload}}</span></a
           >
           <p class="cta-meta">
@@ -74,17 +73,14 @@
   <section class="band band-last" id="download">
     <div class="container">
       <h2 class="section-head"><span class="idx">03</span>{{downloadHeading}}</h2>
-      <!-- Three platforms, one artifact. The rows come from the DOWNLOADS table, where a
-         planned entry has nowhere to point by construction. -->
-      <ul class="dl-list" role="list">
-        {{downloadTable}}
-      </ul>
-      <p class="planned-note">{{plannedNote}}</p>
+      <!-- One card per platform, from the DOWNLOADS table, where a planned entry has nowhere
+         to point by construction. -->
+      <div class="dl-grid">{{downloadCards}}</div>
     </div>
   </section>
 </main>
 
-<!-- The version in the hero pill. The update manifest is the single source of truth for what
+<!-- The version in the hero tag. The update manifest is the single source of truth for what
      is shipping; failing quietly is correct, since the dash it replaces is already honest. -->
 <script>
   // The hero offers the visitor's own platform. Done here rather than server-side because the

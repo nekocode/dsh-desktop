@@ -9,9 +9,10 @@
          would hand someone a home-screen tile made of the middle of a bar chart. -->
     <link rel="apple-touch-icon" href="{{appleTouchIconHref}}" />
     <!-- Browser chrome reads its colour from here and cannot see a CSS variable, so this is the
-     one place --paper is spelled as a literal. The dark value is the second entry. -->
-    <meta name="theme-color" content="#F6F5F2" media="(prefers-color-scheme: light)" />
-    <meta name="theme-color" content="#0D0E11" media="(prefers-color-scheme: dark)" />
+     one place --paper is spelled as a literal. The dark value is the second entry, and
+     styles.test.ts pins both against the stylesheet. -->
+    <meta name="theme-color" content="#f7f7f4" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#0d0e11" media="(prefers-color-scheme: dark)" />
     {{headAssets}}
   </head>
   <body>

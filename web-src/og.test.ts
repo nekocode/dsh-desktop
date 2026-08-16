@@ -29,6 +29,20 @@ test('the card quotes the size table rather than remembering it', () => {
   assert.equal(rows.match(/class="row win"/g)?.length, 1);
 });
 
+test('the card is painted out of the page’s palette', () => {
+  // The card cannot link a stylesheet — Chrome renders it from a temp file — so its `:root` is a
+  // hand-copy of the light palette. `--accent` is the one token passed in, and the rest drift
+  // silently: the card only looks wrong next to the page it was shared from.
+  const styles = readFileSync(new URL('web-src/styles.css', root), 'utf8');
+  const template = readFileSync(new URL('web-src/templates/og.html', root), 'utf8');
+  const value = (source: string, token: string) =>
+    source.match(new RegExp(`--${token}:\\s*(#[0-9a-f]{6})`))?.[1];
+  // The first match in the stylesheet is the light one, which is the only scheme a card has.
+  for (const token of ['paper', 'ink', 'body', 'muted', 'rule', 'accent-text']) {
+    assert.equal(value(template, token), value(styles, token), `the card's --${token} has drifted`);
+  }
+});
+
 test('the card template resolves completely', () => {
   // It is rendered by a script rather than by the build, so `build.ts`'s leftover-placeholder
   // gate never sees it. A literal `{{claim}}` would be baked into a PNG and shipped.

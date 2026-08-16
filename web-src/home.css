@@ -1,14 +1,18 @@
-/* The landing page's own sections: the hero and its graph paper, the size table, the four
-   cards, the download list, and the one entrance animation. Loaded only by the home page —
-   the 404 wears `styles.css` alone.
+/* The landing page's own sections: the hero, the size table, the four notes on how it works, the
+   platform cards, and the one entrance animation. Loaded only by the home page — the 404 wears
+   `styles.css` alone.
 
-   Everything here assumes the tokens defined there. */
+   Everything here assumes the tokens and the rails defined there. The two grids on this page break
+   out of the content column's padding so their dividers meet the rails: inside the frame, the page
+   is one continuous sheet of graph paper with things drawn on it. */
 
 /* --- hero --- */
 
 .hero {
   position: relative;
-  padding: clamp(48px, 8vw, 104px) 0 var(--band-pad);
+}
+.hero > .container {
+  padding-block: clamp(40px, 7vw, 88px) var(--band-pad);
 }
 
 /* Graph paper, over the hero only. Two gradients, no image.
@@ -25,36 +29,37 @@
     linear-gradient(to right, var(--rule) 1px, transparent 1px),
     linear-gradient(to bottom, var(--rule) 1px, transparent 1px);
   background-size: var(--grid-step) var(--grid-step);
-  opacity: 0.6;
-  -webkit-mask-image: radial-gradient(115% 100% at 50% 0%, #000 0%, transparent 82%);
-  mask-image: radial-gradient(115% 100% at 50% 0%, #000 0%, transparent 82%);
+  opacity: 0.45;
+  -webkit-mask-image: radial-gradient(115% 100% at 50% 0%, #000 0%, transparent 78%);
+  mask-image: radial-gradient(115% 100% at 50% 0%, #000 0%, transparent 78%);
 }
 
-/* Deliberately not 1fr 1fr: the copy leads, the spec card answers. An even split would make the
+/* Deliberately not 1fr 1fr: the copy leads, the size table answers. An even split would make the
    page read as two things of equal weight, which is not the argument. */
 .hero-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr);
+  grid-template-columns: minmax(0, 1.12fr) minmax(0, 0.88fr);
   gap: clamp(32px, 5vw, 72px);
   align-items: start;
 }
 
-.pill {
+/* Square, like everything else. A rounded pill was the one shape on the page that came from
+   somewhere other than the grid. */
+.tag {
   display: inline-flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: 0.55rem;
   font-family: var(--mono);
   font-size: 0.6875rem;
   font-stretch: 85%;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--body);
   border: 1px solid var(--rule-strong);
-  border-radius: 999px;
-  padding: 0.3rem 0.75rem;
+  padding: 0.35rem 0.7rem;
   background: var(--panel);
 }
-/* The pill is uppercased; a version number is not. `v0.1.0` is how the tag is written
+/* The tag is uppercased; a version number is not. `v0.1.0` is how the tag is written
    everywhere else, and `V0.1.0` is not a version anyone would type. */
 .version {
   text-transform: none;
@@ -67,14 +72,12 @@
   position: relative;
   width: 6px;
   height: 6px;
-  border-radius: 50%;
   background: var(--accent);
 }
 .pulse::after {
   content: '';
   position: absolute;
   inset: 0;
-  border-radius: 50%;
   background: color-mix(in srgb, var(--accent) 45%, transparent);
   animation: pulse 2.4s ease-out infinite;
 }
@@ -85,7 +88,7 @@
   }
   70%,
   100% {
-    transform: scale(3.2);
+    transform: scale(3);
     opacity: 0;
   }
 }
@@ -116,11 +119,11 @@
 }
 
 .cta {
-  margin-top: 2rem;
+  margin-top: 2.2rem;
 }
 
 .cta-meta {
-  margin-top: 0.85rem;
+  margin-top: 0.9rem;
   font-family: var(--mono);
   font-size: 0.6875rem;
   font-stretch: 85%;
@@ -130,30 +133,12 @@
 
 /* --- the size table --- */
 
-/* The one lifted surface on the page. It sits on the graph paper, and without a shadow it
-   reads as a hole punched in the grid rather than a card laid over it. */
+/* Flat, bordered, square: the same sheet as the rest of the page, ruled off. A shadow would make
+   it the one object floating above a design whose whole vocabulary is lines. */
 .spec-card {
   background: var(--panel);
   border: 1px solid var(--rule);
-  border-radius: 3px;
-  padding: clamp(20px, 3vw, 30px);
-  box-shadow:
-    0 1px 2px color-mix(in srgb, var(--ink) 4%, transparent),
-    0 18px 40px -22px color-mix(in srgb, var(--ink) 30%, transparent);
-}
-
-.spec-head,
-.section-head {
-  display: flex;
-  align-items: center;
-  gap: 0.7rem;
-  font-family: var(--mono);
-  font-size: 0.6875rem;
-  font-stretch: 85%;
-  font-weight: 500;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-  color: var(--muted);
+  padding: clamp(22px, 3vw, 32px);
 }
 
 .spec {
@@ -223,14 +208,12 @@
   display: block;
   height: 5px;
   background: var(--rule);
-  border-radius: 1px;
 }
 /* Scaled, not resized: a transform animates on the compositor, a width animates the layout. */
 .spec-track i {
   display: block;
   height: 100%;
   width: var(--w);
-  border-radius: 1px;
   background: var(--ink);
   transform-origin: left;
   animation: grow 0.85s cubic-bezier(0.2, 0.75, 0.2, 1) both;
@@ -262,7 +245,6 @@
   display: block;
   width: 14px;
   height: 5px;
-  border-radius: 1px;
   background: var(--ink);
 }
 .spec-key.is-alt i {
@@ -279,7 +261,7 @@
 
 /* One row is the answer to the question the table asks. It is the only thing on the page
    painted in the brand colour. */
-.is-highlight .spec-bar i {
+.is-highlight .spec-track i {
   background: var(--accent);
 }
 .is-highlight .spec-value {
@@ -301,33 +283,63 @@
 /* --- bands --- */
 
 .band {
-  padding: var(--band-pad) 0;
   border-top: 1px solid var(--rule);
+}
+.band > .container {
+  padding-block: var(--band-pad);
 }
 .band-last {
   border-bottom: 1px solid var(--rule);
 }
 
+/* Every heading on this page is a datasheet caption: index, label, then a hairline that runs out to
+   the edge of whatever holds it. The line is the heading's own, so no section has to draw one. */
+.section-head,
+.spec-head {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  font-family: var(--mono);
+  font-size: 0.6875rem;
+  font-stretch: 85%;
+  font-weight: 500;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.section-head::after,
+.spec-head::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--rule);
+}
+
+/* Only the band headings: the size table's caption sets its own spacing inside the card. */
 .section-head {
-  margin-bottom: clamp(28px, 4vw, 44px);
+  margin-bottom: clamp(24px, 3.5vw, 40px);
+}
+
+/* Both grids on the page share one construction: 1px gaps over a ruled ground, pulled out to the
+   rails so their dividers are the same lines the frame is made of. No element draws a border. */
+.cards,
+.dl-grid {
+  display: grid;
+  gap: 1px;
+  background: var(--rule);
+  border-block: 1px solid var(--rule);
+  margin-inline: calc(var(--gutter) * -1);
 }
 
 /* Two by two, not auto-fit: there are exactly four cards, and a third column leaves the grid
    with a hole in it at most desktop widths. */
 .cards {
-  display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  /* No boxes: the hairlines are drawn by the gap showing the ground through. */
-  gap: 1px;
-  background: var(--rule);
-  border: 1px solid var(--rule);
-  border-radius: 3px;
-  overflow: hidden;
 }
 
 .card {
   background: var(--panel);
-  padding: clamp(22px, 3vw, 34px);
+  padding: clamp(24px, 3.2vw, 38px);
 }
 .card h3 {
   font-size: 1.0625rem;
@@ -344,72 +356,89 @@
 
 /* --- downloads --- */
 
-.dl-list {
-  list-style: none;
-  border-top: 1px solid var(--rule);
+.dl-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
-.dl-row {
-  display: grid;
-  grid-template-columns: minmax(0, 9rem) minmax(0, 1fr) auto minmax(0, 13rem);
+/* A column, so the button sits on one line across all three cards however long the note above it
+   runs — `margin-top: auto` on the button is what holds that line. */
+.dl-card {
+  display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 1rem;
-  padding: 1.15rem 0.25rem;
-  border-bottom: 1px solid var(--rule);
-  transition: background 0.18s;
+  text-align: center;
+  gap: 0.35rem;
+  background: var(--panel);
+  padding: clamp(32px, 4vw, 52px) clamp(20px, 2.6vw, 34px);
+  transition: background 0.16s;
 }
-.dl-row.is-available:hover {
+.dl-card.is-available:hover {
   background: var(--accent-wash);
 }
 
+.dl-art {
+  width: 96px;
+  margin-bottom: 1.5rem;
+  color: var(--ink);
+}
+.dl-art svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+.art-line {
+  stroke: currentColor;
+  stroke-width: 1;
+  fill: none;
+}
+.art-fill {
+  fill: currentColor;
+}
+.art-accent {
+  fill: var(--accent);
+}
+
 .dl-os {
-  font-size: 1.0625rem;
+  font-size: 1.125rem;
   font-weight: 600;
   font-stretch: 100%;
   letter-spacing: -0.01em;
 }
-.dl-arch,
-.dl-status {
+.dl-arch {
   font-family: var(--mono);
-  font-size: 0.6875rem;
+  font-size: 0.625rem;
   font-stretch: 85%;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
   color: var(--muted);
 }
-.dl-status {
-  justify-self: start;
-  border: 1px solid var(--rule-strong);
-  border-radius: 999px;
-  padding: 0.2rem 0.6rem;
-}
-.is-available .dl-status {
-  color: var(--accent-text);
-  border-color: color-mix(in srgb, var(--accent) 45%, transparent);
+/* The bottom margin, not the button's top one: `margin-top: auto` below is what lines the three
+   buttons up, and anything it has to compete with wins over it and breaks that line. */
+.dl-note {
+  margin: 0.6rem 0 1.9rem;
+  color: var(--body);
+  font-size: 0.875rem;
+  line-height: 1.55;
+  max-width: 32ch;
+  text-wrap: pretty;
 }
 
 .dl-get {
-  justify-self: end;
+  margin-top: auto;
 }
-/* A planned row is visibly not a control: dimmed, and the cell where a button would be holds
-   a dash rather than something disabled that still looks pressable. */
-.is-planned {
+
+/* A planned platform is visibly not a control: the drawing is dimmed and the button's place holds
+   a ruled label, not something pressable that does nothing. */
+.is-planned .dl-art,
+.is-planned .dl-os {
   color: var(--muted);
 }
 .is-planned .dl-os {
   font-weight: 500;
-  color: var(--muted);
 }
-span.dl-get {
-  font-family: var(--mono);
-  color: var(--rule-strong);
-}
-
-.planned-note {
-  margin-top: 1.6rem;
+.btn-off {
+  border: 1px dashed var(--rule-strong);
   color: var(--muted);
-  font-size: 0.875rem;
-  max-width: 62ch;
 }
 
 /* --- motion ---
@@ -437,45 +466,16 @@ span.dl-get {
   .hero-grid {
     grid-template-columns: minmax(0, 1fr);
   }
-  .dl-row {
-    grid-template-columns: minmax(0, 1fr) auto;
-    row-gap: 0.55rem;
-  }
-  .dl-os {
-    grid-column: 1;
-  }
-  .dl-status {
-    grid-column: 2;
-    justify-self: end;
-  }
-  .dl-arch {
-    grid-column: 1;
-    grid-row: 2;
-  }
-  .dl-get {
-    grid-column: 2;
-    grid-row: 2;
-  }
 }
 
-/* Below this the two card columns are narrower than the text they hold, and the prose starts
-   breaking every second word. */
+/* Below this the columns are narrower than the text they hold, and the prose starts breaking
+   every second word. Both grids collapse at the same width so the page keeps one rhythm. */
 @media (max-width: 720px) {
-  .cards {
+  .cards,
+  .dl-grid {
     grid-template-columns: minmax(0, 1fr);
   }
-}
-
-@media (max-width: 560px) {
-  /* The button gets its own row rather than sharing one with the architecture, which at this
-     width wraps "Apple Silicon" onto two lines to make room for it. */
-  .dl-get {
-    grid-column: 1 / -1;
-    grid-row: 3;
-    justify-self: start;
-    margin-top: 0.4rem;
-  }
-  span.dl-get {
-    display: none;
+  .dl-card {
+    padding-block: clamp(28px, 7vw, 40px);
   }
 }

@@ -27,6 +27,7 @@ import {
   pagePath,
   primaryDownload,
   stylesheetsFor,
+  type DownloadId,
   type Page,
 } from './site.ts';
 import { STRINGS } from './strings.ts';
@@ -53,7 +54,7 @@ const HREFS = {
   // second `latestKey(latestArtifactName(...))` here would keep pointing at `latest` on the day the
   // registry starts pointing somewhere else — with every test still green.
   dmgHref: primaryDownload().href,
-  // The hero pill reads the shipping version out of the live update manifest, so the page
+  // The hero tag reads the shipping version out of the live update manifest, so the page
   // never states a version of its own. Same-origin, and the file is already published.
   manifestHref: `/${manifestKey(TARGETS['darwin-arm64'].updaterPlatform)}`,
   iconHref: `/${STATIC_ASSETS.icon}`,
@@ -105,26 +106,65 @@ function sizeLegend(locale: Locale): string {
 }
 
 /**
- * The platform table. Rendered from `DOWNLOADS` rather than written out, so a platform gaining
- * an artifact changes one field — and until it does, the table cannot accidentally offer a link
- * that would 404.
+ * The line drawing on each platform's card: one window, drawn three ways.
  *
- * The button carries the verb only. The row already names its platform, and reusing the hero's
- * "Download for macOS" here put that label on the Windows row the moment a second platform
+ * Inline SVG rather than an image file: it is a handful of shapes each, it has to take the ink
+ * colour of whichever scheme the reader is in, and a fourth request for eight hundred bytes is
+ * not worth making.
+ */
+const WINDOW = `
+    <rect class="art-line" x="8.5" y="6.5" width="63" height="51"/>
+    <path class="art-line" d="M8.5 18.5h63"/>
+    <circle class="art-fill" cx="14" cy="12.5" r="1.6"/>
+    <circle class="art-fill" cx="20" cy="12.5" r="1.6"/>
+    <circle class="art-fill" cx="26" cy="12.5" r="1.6"/>`;
+
+/** What sits inside that window, per platform — the only part that differs. */
+const PLATFORM_ART: Record<DownloadId, string> = {
+  // A conversation — what the app is actually for.
+  'macos-arm64': `
+    <rect class="art-fill" x="16" y="26" width="30" height="4"/>
+    <rect class="art-fill" x="16" y="34" width="18" height="4"/>
+    <rect class="art-accent" x="38" y="34" width="12" height="4"/>
+    <rect class="art-fill" x="16" y="42" width="36" height="4"/>
+    <rect class="art-fill" x="16" y="50" width="22" height="4"/>`,
+  // Four panes, which is the one thing everyone already reads as Windows.
+  'windows-x64': `
+    <rect class="art-accent" x="17" y="25" width="20" height="13"/>
+    <rect class="art-line" x="41.5" y="25.5" width="19" height="12"/>
+    <rect class="art-line" x="17.5" y="42.5" width="19" height="11"/>
+    <rect class="art-line" x="41.5" y="42.5" width="19" height="11"/>`,
+  // A prompt and a cursor, and nothing else: there is nothing to download yet.
+  'linux-x64': `
+    <path class="art-line" d="M18 29l7 6-7 6"/>
+    <rect class="art-fill" x="29" y="38" width="16" height="3"/>`,
+};
+
+function platformArt(id: DownloadId): string {
+  return `<svg viewBox="0 0 80 64" fill="none" aria-hidden="true">${WINDOW}${PLATFORM_ART[id]}</svg>`;
+}
+
+/**
+ * The platform cards. Rendered from `DOWNLOADS` rather than written out, so a platform gaining
+ * an artifact changes one field — and until it does, its card cannot offer a link that would 404.
+ *
+ * The button carries the verb only. The card already names its platform, and reusing the hero's
+ * "Download for macOS" here put that label on the Windows card the moment a second platform
  * shipped.
  */
-function downloadTable(locale: Locale): string {
+function downloadCards(locale: Locale): string {
   const strings = STRINGS[locale];
-  return DOWNLOADS.map((entry, index) => {
+  return DOWNLOADS.map((entry) => {
     return [
-      `<li class="dl-row is-${entry.status}" style="--i:${index}">`,
-      `  <span class="dl-os">${entry.os}</span>`,
-      `  <span class="dl-arch">${entry.arch}</span>`,
+      `<article class="dl-card is-${entry.status}">`,
+      `  <div class="dl-art">${platformArt(entry.id)}</div>`,
+      `  <h3 class="dl-os">${entry.os}</h3>`,
+      `  <p class="dl-arch">${entry.arch}</p>`,
+      `  <p class="dl-note">${strings[entry.noteKey]}</p>`,
       entry.status === 'available'
-        ? `  <span class="dl-status">${strings.statusAvailable}</span>\n` +
-          `  <a class="dl-get btn btn-sm" href="${escapeAttr(entry.href)}">${strings.downloadAction}</a>`
-        : `  <span class="dl-status">${strings.statusPlanned}</span>\n  <span class="dl-get" aria-hidden="true">—</span>`,
-      `</li>`,
+        ? `  <a class="btn dl-get" href="${escapeAttr(entry.href)}">${strings.downloadAction}</a>`
+        : `  <p class="btn-off dl-get">${strings.statusPlanned}</p>`,
+      `</article>`,
     ].join('\n');
   }).join('\n');
 }
@@ -153,7 +193,7 @@ function escapeJsonLd(value: unknown): string {
 
 /**
  * Deliberately absent: `softwareVersion`. The live manifest is the version's single source
- * of truth (the pill in the hero reads it at runtime); repeating it here would create a
+ * of truth (the tag in the hero reads it at runtime); repeating it here would create a
  * second one that goes stale between releases and tells search engines something untrue.
  */
 function jsonLd(locale: Locale): string {
@@ -248,7 +288,7 @@ function substitutions(locale: Locale): Record<string, string> {
     seoHead: seoHead(locale),
     sizeTable: sizeTable(locale),
     sizeLegend: sizeLegend(locale),
-    downloadTable: downloadTable(locale),
+    downloadCards: downloadCards(locale),
     windowsHref: downloadById('windows-x64').href,
   };
 }

@@ -1,12 +1,17 @@
-/* The shell every page wears: tokens, base typography, nav, footer, the button, and the one
-   rule that switches motion off. Split from the page's own sections because this file was past
-   the project's 700-line ceiling, and because the 404 needs none of the hero, the size table or
-   the download list — it should not download them.
+/* The shell every page wears: tokens, base typography, the page rails, nav, footer, the button,
+   and the one rule that switches motion off. Split from the page's own sections because this file
+   was past the project's 700-line ceiling, and because the 404 needs none of the hero, the size
+   table or the download cards — it should not download them.
 
-   One aesthetic, stated once: an engineering spec sheet. Paper ground, hairline rules, data set
-   in a monospace, one accent colour and no second one. The page's whole argument is that 249 MB
-   were deleted from the product, so the page itself is built the same way — no framework, no
-   second accent, no decoration that is not carrying information.
+   One aesthetic, stated once: a technical datasheet drawn in hairlines. Paper ground, 1px rules
+   and no corner radius anywhere, data set in a monospace, one accent colour and no second one.
+   Every division on the page is a line rather than a box with a shadow — the page's whole argument
+   is that 249 MB were deleted from the product, so the page is built the same way: no framework,
+   no gradients, no decoration that is not carrying information.
+
+   The rules are structural, not drawn on. Two vertical hairlines run the height of the page at the
+   edges of the content column (`.container`), and every section boundary is a full-bleed
+   horizontal one that crosses them. That grid is the layout; the content sits inside it.
 
    Both typefaces are variable on width as well as weight, and the width axis is used as a real
    design dimension: the wordmark is expanded, the data layer is condensed. That costs no extra
@@ -38,13 +43,13 @@
 }
 
 :root {
-  --paper: #f6f5f2;
-  --panel: #fffefb;
-  --ink: #14151a;
-  --body: #454852;
-  --muted: #85888f;
-  --rule: #e0ded7;
-  --rule-strong: #cbc8bf;
+  --paper: #f7f7f4;
+  --panel: #fffefc;
+  --ink: #101116;
+  --body: #4a4d56;
+  --muted: #86898f;
+  --rule: #e2e0d9;
+  --rule-strong: #c9c6bc;
   /* The official brand blue. scripts/make-icon.ts owns the value; styles.test.ts compares. */
   --accent: #4d6bfe;
   --accent-text: #3a55e0;
@@ -56,21 +61,21 @@
     'Archivo', -apple-system, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
   --mono: 'Martian Mono', ui-monospace, 'SF Mono', Menlo, monospace;
 
-  --content-max: 1180px;
-  --gutter: clamp(20px, 5vw, 48px);
-  --band-pad: clamp(64px, 9vw, 116px);
+  --content-max: 1200px;
+  --gutter: clamp(20px, 4.5vw, 52px);
+  --band-pad: clamp(56px, 8vw, 104px);
   --grid-step: 88px;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
     --paper: #0d0e11;
-    --panel: #15171c;
+    --panel: #131418;
     --ink: #f1f1ef;
     --body: #a7acb6;
     --muted: #6d727c;
-    --rule: #23262c;
-    --rule-strong: #343841;
+    --rule: #24262c;
+    --rule-strong: #383c45;
     /* The brand blue is a fill colour, not a text colour, once the ground is near-black: at
        4.4:1 it fails small text. Text takes a lifted tint; fills keep the official value. */
     --accent-text: #93a6ff;
@@ -98,10 +103,14 @@ a {
   text-decoration: none;
 }
 
+/* The content column, and the two vertical rules that draw its edges. Every section on every page
+   goes through this class, so the rails are continuous from the nav to the footer without any
+   element existing to draw them. */
 .container {
   max-width: var(--content-max);
   margin: 0 auto;
   padding: 0 var(--gutter);
+  border-inline: 1px solid var(--rule);
 }
 
 .sr-only {
@@ -135,7 +144,7 @@ a {
   position: sticky;
   top: 0;
   z-index: 100;
-  background: color-mix(in srgb, var(--paper) 82%, transparent);
+  background: color-mix(in srgb, var(--paper) 88%, transparent);
   backdrop-filter: blur(14px) saturate(150%);
   -webkit-backdrop-filter: blur(14px) saturate(150%);
   border-bottom: 1px solid var(--rule);
@@ -146,7 +155,7 @@ a {
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
-  height: 58px;
+  height: 60px;
 }
 
 .brand {
@@ -159,17 +168,16 @@ a {
   font-size: 0.9375rem;
   letter-spacing: -0.01em;
 }
-.brand img {
-  border-radius: 5px;
-}
 
 .nav-links {
   display: flex;
   align-items: center;
   gap: clamp(0.75rem, 2vw, 1.5rem);
   font-family: var(--mono);
-  font-size: 0.75rem;
-  font-stretch: 88%;
+  font-size: 0.6875rem;
+  font-stretch: 85%;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
 .nav-links > a {
   color: var(--body);
@@ -184,8 +192,8 @@ a {
   color: var(--body);
   background: transparent;
   border: 1px solid var(--rule-strong);
-  border-radius: 2px;
-  padding: 0.25rem 0.4rem;
+  border-radius: 0;
+  padding: 0.3rem 0.4rem;
   cursor: pointer;
 }
 .lang select:hover {
@@ -194,51 +202,56 @@ a {
 }
 
 /* --- the button ---
-   One filled button, three sizes. The nav CTA, the hero CTA and the download-row button were
-   three near-identical rules across two files, so changing the hover colour or the radius meant
-   finding all three.
+   One filled rectangle. The nav CTA, the hero CTA and the download-card button were three
+   near-identical rules across two files, so changing the hover colour meant finding all three.
 
-   Selected as `a.btn` rather than `.btn`: the plain-link rules above and in the download list
-   are written with an element in the selector, and a bare class loses to them — which paints
-   link-grey text onto a filled button. */
-a.btn {
+   `.btn-off` is the same box without the press: the planned platform's card puts one where the
+   other two cards have a button, and it has to occupy the identical footprint or the row of
+   buttons stops lining up. It takes the shape here and only its own colours in `home.css`. */
+a.btn,
+.btn-off {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 0.6rem;
-  background: var(--ink);
-  color: var(--paper);
   font-family: var(--mono);
-  font-size: 0.8125rem;
+  font-size: 0.75rem;
   font-stretch: 88%;
   font-weight: 500;
-  padding: 0.85rem 1.3rem;
-  border-radius: 2px;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+  padding: 1rem 1.6rem;
+}
+
+/* Selected as `a.btn` rather than `.btn`: the plain-link rules above are written with an element in
+   the selector, and a bare class loses to them — which paints link-grey text onto a filled button. */
+a.btn {
+  background: var(--ink);
+  color: var(--paper);
+  border: 1px solid var(--ink);
   transition:
-    background 0.18s,
-    transform 0.18s;
+    background 0.16s,
+    border-color 0.16s,
+    color 0.16s;
 }
 a.btn:hover {
   background: var(--accent);
+  border-color: var(--accent);
   color: #fff;
-  transform: translateY(-1px);
 }
 
-/** The two smaller sizes. Only ever size — the treatment stays one decision. */
-a.btn-sm {
-  font-size: 0.75rem;
-  padding: 0.6rem 1rem;
-}
+/** The nav's smaller one. Only ever size — the treatment stays one decision. */
 a.btn-xs {
-  font-size: 0.75rem;
-  padding: 0.45rem 0.85rem;
+  padding: 0.5rem 0.9rem;
+  letter-spacing: 0.09em;
 }
 
 .btn-arrow {
   font-size: 1em;
-  transition: transform 0.18s;
+  transition: transform 0.16s;
 }
 .btn:hover .btn-arrow {
-  transform: translateY(2px);
+  transform: translateX(3px);
 }
 
 .lede {
@@ -251,8 +264,8 @@ a.btn-xs {
   text-wrap: pretty;
 }
 
-/* The section index numerals — 01 the size table, 02 how, 03 how to get it, and 404 on the
-   error page, which is why this lives in the shell rather than with the sections. */
+/* The section index numerals — 01 the size table, 02 how it works, 03 the downloads, and 404 on
+   the error page, which is why this lives in the shell rather than with the sections. */
 .idx {
   color: var(--accent-text);
   font-weight: 700;
@@ -260,8 +273,8 @@ a.btn-xs {
 
 /* --- footer --- */
 
-#footer {
-  padding: clamp(32px, 5vw, 56px) 0;
+#footer > .container {
+  padding-block: clamp(28px, 4vw, 44px);
 }
 .footer-inner {
   display: flex;
@@ -281,7 +294,7 @@ a.btn-xs {
   font-family: var(--mono);
   font-size: 0.6875rem;
   font-stretch: 85%;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
 }
 .footer-links a {
@@ -294,7 +307,10 @@ a.btn-xs {
 /* --- 404 --- */
 
 .notfound {
-  padding: clamp(80px, 16vw, 200px) 0;
+  border-bottom: 1px solid var(--rule);
+}
+.notfound > .container {
+  padding-block: clamp(80px, 16vw, 200px);
 }
 .notfound .idx {
   font-family: var(--mono);

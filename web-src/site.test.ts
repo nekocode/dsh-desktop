@@ -116,6 +116,13 @@ test('every download entry is uniquely identified', () => {
   assert.equal(new Set(DOWNLOADS.map((entry) => entry.id)).size, DOWNLOADS.length);
 });
 
+test('every platform note is written once and used once', () => {
+  // The requirements differ per platform — notarized, SmartScreen, nothing to download at all —
+  // so two cards sharing a note means one of them is telling the visitor something untrue.
+  const keys = DOWNLOADS.map((entry) => entry.noteKey);
+  assert.equal(new Set(keys).size, keys.length, 'two platforms share a note');
+});
+
 test('the size baseline is the largest row — the bars are scaled against it', () => {
   // Both platforms' bars share this scale, so it has to bound both or a bar overflows its track.
   const all = SIZE_ROWS.flatMap((row) => [row.megabytes, row.windowsMegabytes]);

@@ -27,11 +27,11 @@
   }
 
   :root {
-    --paper: #f6f5f2;
-    --ink: #14151a;
-    --body: #454852;
-    --muted: #85888f;
-    --rule: #e0ded7;
+    --paper: #f7f7f4;
+    --ink: #101116;
+    --body: #4a4d56;
+    --muted: #86898f;
+    --rule: #e2e0d9;
     --accent: {{accent}};
     --accent-text: #3a55e0;
   }
@@ -69,7 +69,7 @@
       linear-gradient(to right, var(--rule) 1px, transparent 1px),
       linear-gradient(to bottom, var(--rule) 1px, transparent 1px);
     background-size: 88px 88px;
-    opacity: 0.7;
+    opacity: 0.45;
     mask-image: radial-gradient(110% 100% at 50% 0%, #000 0%, transparent 80%);
   }
 
@@ -146,12 +146,10 @@
     grid-column: 1 / -1;
     height: 12px;
     background: var(--rule);
-    border-radius: 2px;
   }
   .bar i {
     display: block;
     height: 100%;
-    border-radius: 2px;
     background: var(--ink);
   }
   .win .value {

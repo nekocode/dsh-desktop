@@ -9,17 +9,20 @@
  * Product names stay untranslated on purpose. "DeepSeek Harness" is the thing's name, `dsh`
  * is a command, and `~/.dsh` is a path; translating any of them makes the page harder to
  * follow, not easier.
+ *
+ * House style for the copy: short sentences, plain words, no line that could not be said out
+ * loud to someone who asked what this is.
  */
 
 import { LOCALES, type Locale } from './locale.ts';
 
 const en = {
   // --- head ---
-  docTitle: 'DeepSeek Harness — the official harness, as a native app for macOS and Windows',
+  docTitle: 'DeepSeek Harness — a desktop app for macOS and Windows',
   metaDescription:
-    'The official DeepSeek Harness wrapped as a native desktop app for macOS and Windows. A Tauri 2 shell over the system WebView, a trimmed backend, and upstream’s own UI. 98 MB installed on macOS.',
+    'The official DeepSeek Harness, packaged as a desktop app for macOS and Windows. It runs on the WebView your system already has, so it installs at 98 MB instead of 347 MB, and the interface is upstream’s own.',
   ogImageAlt:
-    'DeepSeek Harness, with a bar chart: 347 MB for the upstream install against 98 MB for this one.',
+    'DeepSeek Harness, with a bar chart: 347 MB for the npm install against 98 MB for this app.',
   skipToContent: 'Skip to content',
 
   // --- nav ---
@@ -28,16 +31,16 @@ const en = {
   langLabel: 'Language',
 
   // --- hero ---
-  // The pill's version is filled in from the live update manifest; this is what it reads
+  // The tag's version is filled in from the live update manifest; this is what it reads
   // until that lands, and what it keeps reading if the fetch fails.
   versionFallback: '—',
-  heroPillMeta: 'macOS · Windows',
-  heroClaim: 'The official harness, as a desktop app.',
+  heroTagMeta: 'macOS · Windows',
+  heroClaim: 'The official harness, in an app window.',
   heroLede:
-    'A Tauri 2 shell over the system WebView, a trimmed dsh backend, and dsh’s own web UI. Not one line of frontend logic is copied — the interface is upstream’s, and it follows upstream releases.',
+    'The same dsh you install from npm, with an icon in the dock and no terminal to keep open. The window is drawn by the WebView your system already ships, and the interface is upstream’s own: this project does not copy it and does not patch it.',
 
   // --- size table ---
-  sizeHeading: 'What it weighs',
+  sizeHeading: 'How big it is',
   sizeUpstream: 'npm i @deepseek-ai/dsh, as-is',
   sizeBackend: 'Trimmed backend',
   sizeApp: 'Installed',
@@ -45,48 +48,47 @@ const en = {
   sizeMacOs: 'macOS arm64',
   sizeWindows: 'Windows x64',
   sizeUnit: 'MB',
-  sizeNote:
-    'For comparison, an Electron build would be roughly 340 MB installed and 100–120 MB to download.',
+  sizeNote: 'The same app on Electron would be about 340 MB installed and 100–120 MB to download.',
 
   // --- what it is ---
-  featuresHeading: 'How',
-  webviewTitle: 'Nothing bundled that the OS already has',
+  featuresHeading: 'How it works',
+  webviewTitle: 'No browser bundled',
   webviewBody:
-    'The window renders in the system WebView — WKWebView on macOS, WebView2 on Windows. No Chromium, no second JavaScript engine — that is where most of the 249 MB went.',
-  upstreamTitle: 'Upstream’s interface, verbatim',
+    'The window is drawn by the system WebView: WKWebView on macOS, WebView2 on Windows. No Chromium, no second JavaScript engine. Most of the 249 MB saved comes from there.',
+  upstreamTitle: 'Upstream’s interface, untouched',
   upstreamBody:
-    'The app runs dsh’s own ui-* plugins. This project owns no line of that frontend, so it cannot fall behind it, and it injects nothing into markup upstream is free to change.',
+    'The app loads dsh’s own ui-* plugins. No frontend code is copied, and nothing is injected into the page, so what you get is what upstream ships.',
   updateTitle: 'It updates itself',
   updateBody:
-    'It asks once a day, five seconds after launch, and stays silent unless there is something to say. An offer can be taken, postponed, or skipped. The update window is native, not drawn into the app.',
-  profileTitle: 'Your ~/.dsh is left alone',
+    'It checks once a day, five seconds after launch, and stays quiet when there is nothing new. Install it, put it off, or skip that version. The prompt is a small native window.',
+  profileTitle: 'It leaves your ~/.dsh alone',
   profileBody:
-    'The app keeps its own trimmed profile under Application Support. From first launch that cordis.patch.yml is yours, and upgrades never overwrite it.',
+    'The app keeps its own config under Application Support. After the first launch that cordis.patch.yml is yours to edit, and updates never overwrite it.',
 
   // --- download ---
   downloadHeading: 'Get it',
   ctaDownload: 'Download for macOS',
   ctaDownloadWindows: 'Download for Windows',
   ctaMeta: 'macOS 11+ · signed and notarized',
-  ctaMetaWindows: 'Windows 10 1809+ · unsigned, SmartScreen asks once',
+  ctaMetaWindows: 'Windows 10 1809+ · SmartScreen asks once',
   releaseNotes: 'Release notes',
   downloadAction: 'Download',
-  statusAvailable: 'Available',
-  statusPlanned: 'Planned',
-  plannedNote:
-    'macOS and Windows ship today. Linux is here because it is next, not because it is ready.',
+  statusPlanned: 'Not yet',
+  macNote: 'macOS 11 or later, Apple Silicon. Signed and notarized, so it opens on the first try.',
+  windowsNote:
+    'Windows 10 1809 or later. Not signed yet, so SmartScreen asks once: More info, then Run anyway.',
+  linuxNote: 'Nothing to download yet. Linux is the next one we build, and it is not ready today.',
 
   // --- footer ---
   footerSource: 'Source',
   footerReleases: 'Releases',
   footerUpstream: 'Upstream project',
   footerDisclaimer:
-    'An independent wrapper around the official DeepSeek Harness. Not affiliated with DeepSeek.',
+    'A third-party wrapper around the official DeepSeek Harness. Not affiliated with DeepSeek.',
 
   // --- 404 ---
-  notFoundTitle: 'Nothing at this path',
-  notFoundBody:
-    'This host serves one page and a shelf of build artifacts. Whatever you asked for is neither.',
+  notFoundTitle: 'Nothing here',
+  notFoundBody: 'This host serves one page and a shelf of builds. You asked for neither.',
   notFoundHome: 'Back to the start',
 } as const;
 
@@ -94,10 +96,10 @@ export type StringKey = keyof typeof en;
 
 const zh: Record<StringKey, string> = {
   // --- head ---
-  docTitle: 'DeepSeek Harness —— 官方 harness，macOS 与 Windows 的原生应用',
+  docTitle: 'DeepSeek Harness —— macOS 与 Windows 上的桌面应用',
   metaDescription:
-    '把官方 DeepSeek Harness 封装成 macOS 与 Windows 的原生桌面应用。Tauri 2 壳跑在系统 WebView 上，后端经过裁剪，界面是上游自己的。macOS 上安装后 98 MB。',
-  ogImageAlt: 'DeepSeek Harness，配一张对比图：上游安装 347 MB，这个 98 MB。',
+    '把官方 DeepSeek Harness 装进 macOS 和 Windows 的桌面应用。窗口交给系统自带的 WebView 画，所以装完是 98 MB，而不是 347 MB；界面就是上游那一套。',
+  ogImageAlt: 'DeepSeek Harness，一张对比图：npm 装下来 347 MB，这个应用 98 MB。',
   skipToContent: '跳到正文',
 
   // --- nav ---
@@ -107,10 +109,10 @@ const zh: Record<StringKey, string> = {
 
   // --- hero ---
   versionFallback: '—',
-  heroPillMeta: 'macOS · Windows',
-  heroClaim: '官方 harness，一个桌面应用。',
+  heroTagMeta: 'macOS · Windows',
+  heroClaim: '官方 harness，装进桌面应用。',
   heroLede:
-    'Tauri 2 壳跑在系统 WebView 上，加一个裁剪过的 dsh 后端，加 dsh 自己的 web UI。不复制一行前端逻辑 —— 界面完全是上游的，也随上游升级。',
+    '和你用 npm 装的 dsh 是同一套东西，只是多了个图标，也不用一直开着终端。窗口交给系统自带的 WebView 画，界面完全是上游的：这个项目既不复制它，也不改它。',
 
   // --- size table ---
   sizeHeading: '它有多大',
@@ -121,44 +123,45 @@ const zh: Record<StringKey, string> = {
   sizeMacOs: 'macOS arm64',
   sizeWindows: 'Windows x64',
   sizeUnit: 'MB',
-  sizeNote: '对照：Electron 方案安装后约 340 MB，下载 100–120 MB。',
+  sizeNote: '同样的东西用 Electron 做，装完大约 340 MB，下载 100–120 MB。',
 
   // --- what it is ---
-  featuresHeading: '怎么做到的',
-  webviewTitle: '系统已经有的，一律不打包',
+  featuresHeading: '它是怎么做的',
+  webviewTitle: '不打包浏览器',
   webviewBody:
-    '窗口用系统 WebView 渲染 —— macOS 上是 WKWebView，Windows 上是 WebView2。不带 Chromium，不带第二个 JavaScript 引擎 —— 省下的 249 MB 大半来自这里。',
-  upstreamTitle: '上游的界面，一字不改',
+    '窗口用系统自带的 WebView 画：macOS 上是 WKWebView，Windows 上是 WebView2。不带 Chromium，也没有第二个 JavaScript 引擎。省下的 249 MB 大半来自这里。',
+  upstreamTitle: '上游的界面，一点没动',
   upstreamBody:
-    '应用跑的是 dsh 自己的 ui-* 插件。这个项目一行前端都不拥有，所以不会落后于它，也不会往上游随时会改的 DOM 里注入任何东西。',
-  updateTitle: '自己更新',
+    '应用加载的是 dsh 自己的 ui-* 插件。一行前端代码都不复制，也不往页面里注入东西，所以你看到的就是上游发布的样子。',
+  updateTitle: '它自己更新',
   updateBody:
-    '启动 5 秒后问一次，一天最多一次，没消息就完全不出声。发现新版可以装、可以推迟、也可以跳过。更新界面是独立的原生窗口，不是画进应用里的。',
+    '启动 5 秒后查一次，一天最多一次，没有新版就不吭声。有新版可以装、可以推迟，也可以跳过这一版。提示是一个独立的原生小窗口。',
   profileTitle: '不碰你的 ~/.dsh',
   profileBody:
-    '应用在 Application Support 下自带一份裁剪过的 profile。首次启动之后那份 cordis.patch.yml 就归你，升级不会覆盖。',
+    '应用把自己的配置放在 Application Support 下。首次启动之后，那份 cordis.patch.yml 就归你改，更新不会覆盖。',
 
   // --- download ---
   downloadHeading: '拿到手',
   ctaDownload: '下载 macOS 版',
   ctaDownloadWindows: '下载 Windows 版',
   ctaMeta: 'macOS 11+ · 已签名并公证',
-  ctaMetaWindows: 'Windows 10 1809+ · 未签名，SmartScreen 会问一次',
+  ctaMetaWindows: 'Windows 10 1809+ · SmartScreen 会问一次',
   releaseNotes: '更新日志',
   downloadAction: '下载',
-  statusAvailable: '可用',
-  statusPlanned: '计划中',
-  plannedNote: 'macOS 与 Windows 都已发布。Linux 列在这里是因为它排在后面，不是因为它已经好了。',
+  statusPlanned: '还没有',
+  macNote: 'macOS 11 及以上，Apple Silicon。已签名并公证，双击就能打开。',
+  windowsNote: 'Windows 10 1809 及以上。还没签名，SmartScreen 会拦一次：更多信息 → 仍要运行。',
+  linuxNote: '现在还没有可下的东西。Linux 是下一个要做的，但今天还没好。',
 
   // --- footer ---
   footerSource: '源码',
   footerReleases: 'Releases',
   footerUpstream: '上游项目',
-  footerDisclaimer: '对官方 DeepSeek Harness 的第三方封装，与 DeepSeek 无隶属关系。',
+  footerDisclaimer: '对官方 DeepSeek Harness 的第三方封装，与 DeepSeek 无关。',
 
   // --- 404 ---
-  notFoundTitle: '这个路径下什么也没有',
-  notFoundBody: '这台主机只提供一个页面和一架构建产物。你要的两者都不是。',
+  notFoundTitle: '这里什么都没有',
+  notFoundBody: '这台主机只有一个页面和一堆安装包，你要的两样都不是。',
   notFoundHome: '回首页',
 };
 

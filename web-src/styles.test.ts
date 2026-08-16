@@ -32,6 +32,16 @@ test('the accent is the official brand blue, spelled the same as the app icon', 
   );
 });
 
+test('the browser chrome is painted the colour the page is', async () => {
+  // `<meta name="theme-color">` cannot read a custom property, so --paper is spelled a second
+  // time in the layout — light first, dark second, in both files. Drift shows up as a strip of
+  // the wrong shade above the page, on phones, and never on the machine that made the change.
+  const layout = await readFile(new URL('templates/layout.html', import.meta.url), 'utf8');
+  const paper = [...styles.matchAll(/--paper:\s*(#[0-9a-f]{6})/g)].map(([, value]) => value);
+  const chrome = [...layout.matchAll(/theme-color" content="(#[0-9a-f]{6})"/g)].map(([, v]) => v);
+  assert.deepEqual(chrome, paper, 'theme-color has drifted from --paper');
+});
+
 test('no codepoint in the stylesheets is one nothing can draw', () => {
   // Stylesheets carry visible text too — `content:` values, and the odd dash in a comment.
   for (const character of styles) {
