@@ -35,26 +35,6 @@ The site is built from `web-src/` by `npm run build:web` and served as the downl
 static assets — one hostname, because that hostname is already a Worker custom domain and
 nothing else can claim it.
 
-## Updating
-
-The app updates itself. It asks once a day, five seconds after launch, and stays silent unless there
-is something to say; **Check for Updates…** in the application menu asks immediately and always
-answers. An offer can be taken, postponed, or skipped for that version.
-
-The update interface is a separate native window rather than anything drawn into the app. The main
-window renders dsh's own web UI, which this project owns no line of — injecting into it would couple
-the shell to upstream's markup and break the first time upstream changes it.
-
-Manifests are one file per platform:
-
-```
-https://dsh-desktop.xiu.ai/updates/{{target}}-{{arch}}.json
-```
-
-so a Windows or Linux release can be cut by a separate pipeline without read-modify-writing the
-manifest macOS clients depend on. Artifacts are served from R2 through a Worker whose routing is a
-whitelist (`scripts/dist-worker.ts`), not a bucket proxy.
-
 ## Running it
 
 ```bash
@@ -74,38 +54,28 @@ profile belongs to the build — it declares which plugins ship — so an upgrad
 
 ## Producing a release build
 
+Both installers are built on macOS; append `--release` to publish.
+
 ```bash
-./scripts/dist.sh            # build · sign · notarize · DMG · update artifact
-./scripts/dist.sh --release  # ...and publish it
-npm run deploy:dist          # redeploy the download Worker (rarely needed)
+./scripts/dist.sh                   # macOS: build · sign · notarize · DMG · update artifact
+npm run app:build:win               # Windows: → dist/DeepSeek-Harness-<version>-x64-setup.exe + .sig
+npm run deploy:dist                 # redeploy the download Worker (rarely needed)
 ```
 
-Credentials live in `scripts/.env.local`, which the script sources: `APPLE_TEAM_ID` plus
+Credentials live in `scripts/.env.local`, which the scripts source: `APPLE_TEAM_ID` plus
 `NOTARIZE_KEY_ID` / `NOTARIZE_ISSUER` / `NOTARIZE_KEY_PATH` for Apple, and
-`TAURI_SIGNING_PRIVATE_KEY_PATH` / `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` for the updater. Sign without notarizing: `SKIP_NOTARIZE=true`
-— which `--release` refuses to publish.
+`TAURI_SIGNING_PRIVATE_KEY_PATH` / `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` for the updater signature.
+Sign without notarizing: `SKIP_NOTARIZE=true` — which `--release` refuses to publish. The updater's
+public key is baked into `tauri.conf.json`; **losing its private half means no installed copy can
+ever be updated again**, since a new key cannot be introduced to an old build.
 
-Two things the script does that Tauri would otherwise do wrong, both for the same reason — Tauri
-produces its artifacts *before* signing:
+**macOS.** Two things `dist.sh` does that Tauri would otherwise do wrong, both for the same reason —
+Tauri produces its artifacts *before* signing: it signs every nested binary itself, not just the
+outer bundle, and it builds the DMG and the update tarball from the already signed, notarized and
+stapled `.app`, with `createUpdaterArtifacts` deliberately left off. The tarball is then unpacked
+again and re-verified, because what users install is the archive, not the directory it came from.
 
-- it signs every nested binary itself, not just the outer bundle
-- it builds the DMG and the update tarball from the already signed, notarized and stapled `.app`,
-  with `createUpdaterArtifacts` deliberately left off
-
-The tarball is then unpacked again and re-verified, because what users install is the archive, not
-the directory it came from.
-
-The updater's public key is baked into `tauri.conf.json`. **Losing its private half means no
-installed copy can ever be updated again**, since a new key cannot be introduced to an old build.
-
-## Building the Windows installer (from macOS)
-
-```bash
-npm run app:build:win            # → dist/DeepSeek-Harness-<version>-x64-setup.exe + .sig
-npm run app:build:win -- --release  # ...and publish it
-```
-
-One-time setup:
+**Windows**, one-time setup:
 
 ```bash
 cargo install cargo-xwin                  # MSVC CRT + Windows SDK, fetched on first use
@@ -121,15 +91,11 @@ platform doing the installing, so a Windows artifact needs its own staging direc
 macOS native packages. `DSH_TARGET` selects which one the build reads, and `scripts/target.ts`
 holds every per-target fact — none of them are derived from the host.
 
-Two differences from the macOS pipeline, both consequences of there being no Windows machine in the
-loop:
-
-- **`npm run smoke` skips itself.** The artifact cannot run here. It is verified on a real machine.
-- **No Authenticode signing.** The updater signature (minisign) is still produced here and is what
-  an installed copy verifies; Authenticode is the separate, unrelated thing SmartScreen looks at.
-  See *Known limitations* for why buying a certificate would not remove the warning today.
-
-The installer is renamed on its way into `dist/`: Tauri names it from `productName`, which contains
+Because no Windows machine is in the loop, **`npm run smoke` skips itself** (the artifact cannot run
+here; it is verified on a real machine) and there is **no Authenticode signing** — the updater
+signature (minisign) is still produced and is what an installed copy verifies; see *Known
+limitations* for why buying a certificate would not remove the SmartScreen warning today. The
+installer is also renamed on its way into `dist/`: Tauri names it from `productName`, which contains
 a space, and the download Worker's route whitelist rejects those — a published URL would 404 while
 every local check passed.
 

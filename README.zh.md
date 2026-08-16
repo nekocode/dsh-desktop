@@ -33,23 +33,6 @@ macOS 上那一刀 strip 在这里无处可砍），而 NSIS 的 solid LZMA 比 
 站点由 `npm run build:web` 从 `web-src/` 生成，作为下载 Worker 的静态资源分发 —— 只有一个域名，
 因为这个域名已经被那个 Worker 以 custom domain 独占，别的东西抢不走。
 
-## 自动更新
-
-应用自己更新。启动 5 秒后问一次，一天最多一次，没消息就完全不出声；应用菜单里的
-**Check for Updates…** 立刻问，且一定给答复。发现新版可以装、可以推迟、也可以跳过这一版。
-
-更新界面是**独立的原生窗口**，不是画进应用里的东西。主窗口渲染的是 dsh 自己的 web UI，
-这个项目一行都不拥有 —— 往里注入等于把壳绑死在上游的 DOM 上，上游一改就废。
-
-清单按平台各一份：
-
-```
-https://dsh-desktop.xiu.ai/updates/{{target}}-{{arch}}.json
-```
-
-这样将来的 Windows / Linux 流水线可以自己发版，而不必去读-改-写 macOS 客户端依赖的那份清单。
-产物由 R2 经 Worker 分发，路由是白名单（`scripts/dist-worker.ts`），不是桶代理。
-
 ## 跑起来
 
 ```bash
@@ -69,36 +52,27 @@ npm run check          # typecheck + format + JS 单测 + clippy + Rust 单测
 
 ## 出正式包
 
+两个安装包都在 macOS 上出；加 `--release` 顺带发布。
+
 ```bash
-./scripts/dist.sh            # 构建 · 签名 · 公证 · DMG · 更新包
-./scripts/dist.sh --release  # 再发布出去
-npm run deploy:dist          # 重新部署下载 Worker（很少用到）
+./scripts/dist.sh                   # macOS：构建 · 签名 · 公证 · DMG · 更新包
+npm run app:build:win               # Windows：→ dist/DeepSeek-Harness-<version>-x64-setup.exe + .sig
+npm run deploy:dist                 # 重新部署下载 Worker（很少用到）
 ```
 
 凭据放 `scripts/.env.local`，脚本自己 source：Apple 的 `APPLE_TEAM_ID` 和
 `NOTARIZE_KEY_ID` / `NOTARIZE_ISSUER` / `NOTARIZE_KEY_PATH`，以及更新签名用的
 `TAURI_SIGNING_PRIVATE_KEY_PATH` / `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`。
 只签名不公证：`SKIP_NOTARIZE=true` —— 这样出的包 `--release` 会拒绝发布。
-
-脚本替 Tauri 做对了两件事，原因是同一个：Tauri 的产物是在签名**之前**打出来的。
-
-- 嵌套二进制逐个自己签，不只签外层
-- DMG 和更新包都从已签名、已公证、已 staple 的 `.app` 现做，
-  `createUpdaterArtifacts` 是故意关着的
-
-打完的 tar 包会再解开验一遍 —— 用户装的是那个压缩包，不是它来源的那个目录。
-
-更新公钥烤在 `tauri.conf.json` 里。**私钥丢了，所有已安装的副本就永远更新不了了** ——
+更新公钥烤在 `tauri.conf.json` 里，**私钥丢了，所有已安装的副本就永远更新不了了** ——
 新钥匙塞不进旧包。
 
-## 出 Windows 安装包（在 macOS 上）
+**macOS。** `dist.sh` 替 Tauri 做对了两件事，原因是同一个：Tauri 的产物是在签名**之前**打出来的 ——
+嵌套二进制逐个自己签，不只签外层；DMG 和更新包都从已签名、已公证、已 staple 的 `.app` 现做，
+`createUpdaterArtifacts` 是故意关着的。打完的 tar 包会再解开验一遍 —— 用户装的是那个压缩包，
+不是它来源的那个目录。
 
-```bash
-npm run app:build:win               # → dist/DeepSeek-Harness-<version>-x64-setup.exe + .sig
-npm run app:build:win -- --release  # 顺带发布
-```
-
-一次性准备：
+**Windows**，一次性准备：
 
 ```bash
 cargo install cargo-xwin                  # 首次使用时自动拉 MSVC CRT 与 Windows SDK
@@ -114,14 +88,10 @@ cp build/upstream-darwin-arm64/package.json build/upstream-win32-x64/
 `DSH_TARGET` 决定构建读哪一个，`scripts/target.ts` 收着每一条按目标不同的事实 ——
 没有一条是从宿主推出来的。
 
-和 macOS 流程的两处不同，都因为这条链路里没有 Windows 机器：
-
-- **`npm run smoke` 自己跳过。** 产物在这里跑不起来，验证放到真机上。
-- **不做 Authenticode 签名。** 更新签名（minisign）照出，那是已安装副本会校验的东西；
-  Authenticode 是另一回事，SmartScreen 看的是它。为什么现在买证书也没用，见「已知限制」。
-
-安装包在进 `dist/` 的路上会改名：Tauri 按 `productName` 命名，里面**带空格**，
-而下载 Worker 的路由白名单不收 —— 本地全绿，上线 404。
+因为这条链路里没有 Windows 机器：**`npm run smoke` 自己跳过**（产物在这里跑不起来，验证放到真机上），
+且**不做 Authenticode 签名** —— 更新签名（minisign）照出，那是已安装副本会校验的东西；
+为什么现在买证书也去不掉 SmartScreen 的提示，见「已知限制」。安装包在进 `dist/` 的路上还会改名：
+Tauri 按 `productName` 命名，里面**带空格**，而下载 Worker 的路由白名单不收 —— 本地全绿，上线 404。
 
 Windows 版**不带 node-pty**：Bun 1.3.14 起 `Bun.Terminal` 原生驱动 ConPTY，
 `scripts/pty-shim.ts` 本来就是能力探测，所以没有任何需要按平台编译或匹配的东西。
