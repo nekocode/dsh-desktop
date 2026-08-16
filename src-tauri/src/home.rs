@@ -4,8 +4,8 @@
 //! already have — our profile is trimmed, and sitting next to the full version installed by the CLI
 //! the two would overwrite each other.
 //!
-//! The profile seed is written only where files are missing: once written, that `cordis.patch.yml`
-//! belongs to the user, and plugin rows they add must not be wiped by an upgrade on the next launch.
+//! The seed has two kinds of file in it, and an upgrade has to treat them oppositely — see
+//! `USER_OWNED`.
 
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -13,18 +13,37 @@ use std::path::{Path, PathBuf};
 /// Profile name reserved for the desktop build.
 pub const PROFILE: &str = "desktop";
 
+/// The one seeded file that becomes the user's the moment it is written.
+///
+/// Everything else in the seed is ours: it declares which plugins this build ships and how they are
+/// wired, so it has to move with the app. Seeding used to be "write it only if absent", which was
+/// indistinguishable from correct as long as the app could not update itself — nothing could ever
+/// arrive that disagreed with what was already there. With self-updating, that rule pins every
+/// installation to the `cordis.yml` it was first installed with, and a backend whose plugin tree
+/// has moved on then fails at startup for reasons nothing in the profile explains.
+pub const USER_OWNED: &str = "cordis.patch.yml";
+
+/// Whether the bundled copy of `name` replaces what is already on disk.
+///
+/// Pure, so the ownership rule is stated once and can be read without a filesystem in the way.
+pub fn replaces_existing(name: &str) -> bool {
+    name != USER_OWNED
+}
+
 pub fn home_dir(app_data: &Path) -> PathBuf {
     app_data.join("dsh-home")
 }
 
-/// Seeds `$DSH_HOME` from the bundled profile seed, never overwriting an existing file.
+/// Seeds `$DSH_HOME` from the bundled profile seed, refreshing our files and leaving the user's alone.
 ///
 /// The seed directory itself is the single source of truth — no duplicate file list here. When the
 /// build script adds another seed file this follows automatically; a hard-coded list would only
 /// drift independently in two places across two languages.
 ///
-/// Returns the names actually written, for logging — "wrote nothing" and "laid down a fresh copy"
-/// are entirely different events, and startup diagnosis must be able to tell them apart.
+/// Returns the names actually written, for logging — "wrote nothing", "laid down a fresh copy" and
+/// "refreshed one file after an upgrade" are entirely different events, and startup diagnosis must
+/// be able to tell them apart. Identical content counts as nothing written, so the ordinary launch
+/// stays quiet and a line in the log always means something actually changed.
 pub fn seed_profile(home: &Path, seed_dir: &Path) -> std::io::Result<Vec<String>> {
     let target = home.join("profiles").join(PROFILE);
     fs::create_dir_all(&target)?;
@@ -40,7 +59,14 @@ pub fn seed_profile(home: &Path, seed_dir: &Path) -> std::io::Result<Vec<String>
         let name = entry.file_name();
         let dst = target.join(&name);
         if dst.exists() {
-            continue;
+            if !replaces_existing(&name.to_string_lossy()) {
+                continue;
+            }
+            // Seed files are a few hundred bytes; comparing them costs less than the log line that
+            // a blind copy would emit on every single launch.
+            if fs::read(&dst)? == fs::read(entry.path())? {
+                continue;
+            }
         }
         fs::copy(entry.path(), &dst)?;
         written.push(name.to_string_lossy().into_owned());
@@ -104,6 +130,62 @@ mod tests {
         let written = seed_profile(&home, &seed).unwrap();
         assert!(written.is_empty());
         assert_eq!(fs::read_to_string(&patch).unwrap(), "- id: mine\n");
+    }
+
+    #[test]
+    fn an_upgrade_refreshes_the_files_we_own_or_the_backend_boots_an_outdated_plugin_tree() {
+        let root = temp("upgrade");
+        let seed = root.join("seed");
+        seed_fixture(&seed);
+        let home = root.join("home");
+        seed_profile(&home, &seed).unwrap();
+
+        // What a self-update looks like from here: the bundled seed moved on, the installed copy did not.
+        fs::write(seed.join("cordis.yml"), "seed:cordis.yml v2").unwrap();
+
+        assert_eq!(seed_profile(&home, &seed).unwrap(), vec!["cordis.yml"]);
+        assert_eq!(
+            fs::read_to_string(home.join("profiles/desktop/cordis.yml")).unwrap(),
+            "seed:cordis.yml v2"
+        );
+    }
+
+    #[test]
+    fn the_user_layer_survives_an_upgrade_that_rewrites_everything_around_it() {
+        let root = temp("upgrade-user");
+        let seed = root.join("seed");
+        seed_fixture(&seed);
+        let home = root.join("home");
+        seed_profile(&home, &seed).unwrap();
+
+        let patch = home.join("profiles/desktop/cordis.patch.yml");
+        fs::write(&patch, "- id: mine\n").unwrap();
+        for name in FIXTURE {
+            fs::write(seed.join(name), format!("seed:{name} v2")).unwrap();
+        }
+
+        let written = seed_profile(&home, &seed).unwrap();
+        assert!(!written.contains(&USER_OWNED.to_string()), "{written:?}");
+        assert_eq!(fs::read_to_string(&patch).unwrap(), "- id: mine\n");
+    }
+
+    #[test]
+    fn an_unchanged_launch_writes_nothing_so_a_log_line_always_means_something_moved() {
+        let root = temp("unchanged");
+        let seed = root.join("seed");
+        seed_fixture(&seed);
+        let home = root.join("home");
+
+        seed_profile(&home, &seed).unwrap();
+        assert!(seed_profile(&home, &seed).unwrap().is_empty());
+    }
+
+    #[test]
+    fn ownership_is_one_file_and_everything_else_follows_the_app() {
+        assert!(!replaces_existing(USER_OWNED));
+        for name in ["cordis.yml", "package.json", "pnpm-workspace.yaml"] {
+            assert!(replaces_existing(name), "{name} must follow the app");
+        }
     }
 
     #[test]
