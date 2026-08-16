@@ -1,0 +1,437 @@
+/* The landing page's own sections: the hero and its graph paper, the size table, the four
+   cards, the download list, and the one entrance animation. Loaded only by the home page —
+   the 404 wears `styles.css` alone.
+
+   Everything here assumes the tokens defined there. */
+
+/* --- hero --- */
+
+.hero {
+  position: relative;
+  padding: clamp(48px, 8vw, 104px) 0 var(--band-pad);
+}
+
+/* Graph paper, over the hero only. Two gradients, no image.
+   Scoped to the hero rather than fixed behind the whole page: a fixed layer is masked against
+   the viewport, so it would reappear at the top of the window at every scroll position — the
+   texture has to belong to the fold, not follow the reader down the page. */
+.hero::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background-image:
+    linear-gradient(to right, var(--rule) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--rule) 1px, transparent 1px);
+  background-size: var(--grid-step) var(--grid-step);
+  opacity: 0.6;
+  -webkit-mask-image: radial-gradient(115% 100% at 50% 0%, #000 0%, transparent 82%);
+  mask-image: radial-gradient(115% 100% at 50% 0%, #000 0%, transparent 82%);
+}
+
+/* Deliberately not 1fr 1fr: the copy leads, the spec card answers. An even split would make the
+   page read as two things of equal weight, which is not the argument. */
+.hero-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr);
+  gap: clamp(32px, 5vw, 72px);
+  align-items: start;
+}
+
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-family: var(--mono);
+  font-size: 0.6875rem;
+  font-stretch: 85%;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--body);
+  border: 1px solid var(--rule-strong);
+  border-radius: 999px;
+  padding: 0.3rem 0.75rem;
+  background: var(--panel);
+}
+/* The pill is uppercased; a version number is not. `v0.1.0` is how the tag is written
+   everywhere else, and `V0.1.0` is not a version anyone would type. */
+.version {
+  text-transform: none;
+}
+/* The only thing on the page that animates forever, so it is also the only thing that could
+   keep the renderer from ever going idle. The ring is a pseudo-element scaled by `transform`
+   rather than a growing `box-shadow`: spread is not a compositor property, and animating it
+   repaints on the main thread every frame for as long as the tab is open. */
+.pulse {
+  position: relative;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+.pulse::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--accent) 45%, transparent);
+  animation: pulse 2.4s ease-out infinite;
+}
+@keyframes pulse {
+  0% {
+    transform: scale(1);
+    opacity: 0.9;
+  }
+  70%,
+  100% {
+    transform: scale(3.2);
+    opacity: 0;
+  }
+}
+
+/* The width axis pushed to its expanded end. This is the one place the page raises its voice. */
+.wordmark {
+  margin: 1.4rem 0 0;
+  font-weight: 700;
+  font-stretch: 116%;
+  font-size: clamp(2.8rem, 7.6vw, 5.4rem);
+  line-height: 0.9;
+  letter-spacing: -0.035em;
+}
+.wordmark span {
+  display: block;
+}
+
+.claim {
+  margin-top: 1.3rem;
+  font-size: clamp(1.125rem, 2.1vw, 1.5rem);
+  font-weight: 500;
+  font-stretch: 96%;
+  line-height: 1.3;
+  letter-spacing: -0.015em;
+  max-width: 26ch;
+  /* Two short lines of equal length rather than a long one and an orphan. */
+  text-wrap: balance;
+}
+
+.cta {
+  margin-top: 2rem;
+}
+
+.cta-meta {
+  margin-top: 0.85rem;
+  font-family: var(--mono);
+  font-size: 0.6875rem;
+  font-stretch: 85%;
+  color: var(--muted);
+  letter-spacing: 0.02em;
+}
+
+/* --- the size table --- */
+
+/* The one lifted surface on the page. It sits on the graph paper, and without a shadow it
+   reads as a hole punched in the grid rather than a card laid over it. */
+.spec-card {
+  background: var(--panel);
+  border: 1px solid var(--rule);
+  border-radius: 3px;
+  padding: clamp(20px, 3vw, 30px);
+  box-shadow:
+    0 1px 2px color-mix(in srgb, var(--ink) 4%, transparent),
+    0 18px 40px -22px color-mix(in srgb, var(--ink) 30%, transparent);
+}
+
+.spec-head,
+.section-head {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  font-family: var(--mono);
+  font-size: 0.6875rem;
+  font-stretch: 85%;
+  font-weight: 500;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.spec {
+  list-style: none;
+  margin-top: 1.1rem;
+}
+
+/* Areas are named rather than left to auto-placement. The DOM order is label, bar, value —
+   the reading order — while the drawing order is label and value on one line with the bar
+   beneath them, and auto-placement would put the bar between the two. */
+.spec-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas:
+    'label value'
+    'bar   bar';
+  align-items: baseline;
+  column-gap: 1rem;
+  row-gap: 0.6rem;
+  padding: 0.95rem 0 1.05rem;
+}
+
+.spec-label {
+  grid-area: label;
+  font-family: var(--mono);
+  font-size: 0.6875rem;
+  font-stretch: 82%;
+  color: var(--body);
+  letter-spacing: 0.01em;
+  overflow-wrap: anywhere;
+}
+
+.spec-value {
+  grid-area: value;
+  font-family: var(--mono);
+  font-size: 1.125rem;
+  font-stretch: 90%;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  white-space: nowrap;
+}
+.spec-unit {
+  font-size: 0.625rem;
+  font-weight: 400;
+  color: var(--muted);
+  margin-left: 0.3rem;
+}
+
+/* A visible track under every fill, so a short bar reads as "little of the whole" rather than
+   as a stray rule. Without it the 100% row is indistinguishable from a row separator, which is
+   exactly the comparison the table exists to make. */
+.spec-bar {
+  grid-area: bar;
+  display: block;
+  height: 6px;
+  background: var(--rule);
+  border-radius: 1px;
+}
+/* Scaled, not resized: a transform animates on the compositor, a width animates the layout. */
+.spec-bar i {
+  display: block;
+  height: 100%;
+  width: var(--w);
+  border-radius: 1px;
+  background: var(--ink);
+  transform-origin: left;
+  animation: grow 0.85s cubic-bezier(0.2, 0.75, 0.2, 1) both;
+  animation-delay: calc(0.45s + var(--i) * 0.1s);
+}
+@keyframes grow {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+
+/* One row is the answer to the question the table asks. It is the only thing on the page
+   painted in the brand colour. */
+.is-highlight .spec-bar i {
+  background: var(--accent);
+}
+.is-highlight .spec-value {
+  color: var(--accent-text);
+}
+.is-highlight .spec-label {
+  color: var(--ink);
+}
+
+.spec-note {
+  margin-top: 1.3rem;
+  padding-top: 1.1rem;
+  border-top: 1px solid var(--rule);
+  font-size: 0.8125rem;
+  line-height: 1.55;
+  color: var(--muted);
+}
+
+/* --- bands --- */
+
+.band {
+  padding: var(--band-pad) 0;
+  border-top: 1px solid var(--rule);
+}
+.band-last {
+  border-bottom: 1px solid var(--rule);
+}
+
+.section-head {
+  margin-bottom: clamp(28px, 4vw, 44px);
+}
+
+/* Two by two, not auto-fit: there are exactly four cards, and a third column leaves the grid
+   with a hole in it at most desktop widths. */
+.cards {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  /* No boxes: the hairlines are drawn by the gap showing the ground through. */
+  gap: 1px;
+  background: var(--rule);
+  border: 1px solid var(--rule);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.card {
+  background: var(--panel);
+  padding: clamp(22px, 3vw, 34px);
+}
+.card h3 {
+  font-size: 1.0625rem;
+  font-weight: 600;
+  font-stretch: 98%;
+  letter-spacing: -0.012em;
+  line-height: 1.3;
+}
+.card p {
+  margin-top: 0.7rem;
+  color: var(--body);
+  font-size: 0.9375rem;
+}
+
+/* --- downloads --- */
+
+.dl-list {
+  list-style: none;
+  border-top: 1px solid var(--rule);
+}
+
+.dl-row {
+  display: grid;
+  grid-template-columns: minmax(0, 9rem) minmax(0, 1fr) auto minmax(0, 13rem);
+  align-items: center;
+  gap: 1rem;
+  padding: 1.15rem 0.25rem;
+  border-bottom: 1px solid var(--rule);
+  transition: background 0.18s;
+}
+.dl-row.is-available:hover {
+  background: var(--accent-wash);
+}
+
+.dl-os {
+  font-size: 1.0625rem;
+  font-weight: 600;
+  font-stretch: 100%;
+  letter-spacing: -0.01em;
+}
+.dl-arch,
+.dl-status {
+  font-family: var(--mono);
+  font-size: 0.6875rem;
+  font-stretch: 85%;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.dl-status {
+  justify-self: start;
+  border: 1px solid var(--rule-strong);
+  border-radius: 999px;
+  padding: 0.2rem 0.6rem;
+}
+.is-available .dl-status {
+  color: var(--accent-text);
+  border-color: color-mix(in srgb, var(--accent) 45%, transparent);
+}
+
+.dl-get {
+  justify-self: end;
+}
+/* A planned row is visibly not a control: dimmed, and the cell where a button would be holds
+   a dash rather than something disabled that still looks pressable. */
+.is-planned {
+  color: var(--muted);
+}
+.is-planned .dl-os {
+  font-weight: 500;
+  color: var(--muted);
+}
+span.dl-get {
+  font-family: var(--mono);
+  color: var(--rule-strong);
+}
+
+.planned-note {
+  margin-top: 1.6rem;
+  color: var(--muted);
+  font-size: 0.875rem;
+  max-width: 62ch;
+}
+
+/* --- motion ---
+   One orchestrated entrance on load, ordered by --i, and nothing that fires on scroll. The page
+   is short enough to be read in one pass; content that animates as you reach it just delays it. */
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.rise {
+  animation: rise 0.72s cubic-bezier(0.2, 0.75, 0.2, 1) both;
+  animation-delay: calc(var(--i) * 0.085s);
+}
+
+/* --- narrow --- */
+
+@media (max-width: 900px) {
+  .hero-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .dl-row {
+    grid-template-columns: minmax(0, 1fr) auto;
+    row-gap: 0.55rem;
+  }
+  .dl-os {
+    grid-column: 1;
+  }
+  .dl-status {
+    grid-column: 2;
+    justify-self: end;
+  }
+  .dl-arch {
+    grid-column: 1;
+    grid-row: 2;
+  }
+  .dl-get {
+    grid-column: 2;
+    grid-row: 2;
+  }
+}
+
+/* Below this the two card columns are narrower than the text they hold, and the prose starts
+   breaking every second word. */
+@media (max-width: 720px) {
+  .cards {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 560px) {
+  /* The button gets its own row rather than sharing one with the architecture, which at this
+     width wraps "Apple Silicon" onto two lines to make room for it. */
+  .dl-get {
+    grid-column: 1 / -1;
+    grid-row: 3;
+    justify-self: start;
+    margin-top: 0.4rem;
+  }
+  span.dl-get {
+    display: none;
+  }
+}

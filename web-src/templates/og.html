@@ -1,0 +1,199 @@
+<!doctype html>
+<meta charset="utf-8" />
+<!--
+  The share card. Rendered to a PNG by `scripts/make-og.ts`, never served as HTML.
+
+  Standalone rather than a reuse of `styles.css`: the page's stylesheet is written for a
+  viewport that scrolls and a reader who can zoom, and every rule in it would have to be
+  fought to fill a fixed 1200×630 frame. What is shared is the design — the same tokens, the
+  same two typefaces, the same graph paper — and the facts, which come from `site.ts`.
+
+  Deliberately English-only, one card for both languages. The card carries a name, four
+  numbers and a hostname; none of that translates, and a second card would be a second
+  artifact to regenerate and a second way to forget.
+-->
+<style>
+  @font-face {
+    font-family: 'Archivo';
+    src: url('{{displayFontUrl}}') format('woff2');
+    font-weight: 400 700;
+    font-stretch: 62% 125%;
+  }
+  @font-face {
+    font-family: 'Martian Mono';
+    src: url('{{monoFontUrl}}') format('woff2');
+    font-weight: 300 800;
+    font-stretch: 75% 112.5%;
+  }
+
+  :root {
+    --paper: #f6f5f2;
+    --ink: #14151a;
+    --body: #454852;
+    --muted: #85888f;
+    --rule: #e0ded7;
+    --accent: {{accent}};
+    --accent-text: #3a55e0;
+  }
+
+  * {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+  }
+
+  html,
+  body {
+    width: {{width}}px;
+    height: {{height}}px;
+    overflow: hidden;
+  }
+
+  body {
+    position: relative;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: 'Archivo', sans-serif;
+    display: grid;
+    grid-template-rows: 1fr auto;
+    padding: 72px 80px 56px;
+  }
+
+  /* The same graph paper as the hero, at the same 88px step, so the card and the page it
+     links to read as one thing. */
+  body::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image:
+      linear-gradient(to right, var(--rule) 1px, transparent 1px),
+      linear-gradient(to bottom, var(--rule) 1px, transparent 1px);
+    background-size: 88px 88px;
+    opacity: 0.7;
+    mask-image: radial-gradient(110% 100% at 50% 0%, #000 0%, transparent 80%);
+  }
+
+  .top {
+    position: relative;
+    display: grid;
+    grid-template-columns: 1fr 480px;
+    gap: 64px;
+    align-items: center;
+  }
+
+  .kicker {
+    font-family: 'Martian Mono', monospace;
+    font-size: 15px;
+    font-stretch: 85%;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  .wordmark {
+    margin-top: 20px;
+    font-weight: 700;
+    font-stretch: 116%;
+    font-size: 92px;
+    line-height: 0.9;
+    letter-spacing: -0.035em;
+  }
+  .wordmark span {
+    display: block;
+  }
+
+  .claim {
+    margin-top: 26px;
+    font-size: 26px;
+    font-weight: 500;
+    font-stretch: 96%;
+    color: var(--body);
+    letter-spacing: -0.015em;
+  }
+
+  /* Two rows, not four: a card is read at a glance, and the argument is the gap between the
+     largest number and the one that matters. The full table is on the page. */
+  .rows {
+    display: grid;
+    gap: 30px;
+  }
+  .row {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    align-items: baseline;
+    row-gap: 12px;
+  }
+  .label {
+    font-family: 'Martian Mono', monospace;
+    font-size: 14px;
+    font-stretch: 82%;
+    color: var(--body);
+  }
+  .value {
+    font-family: 'Martian Mono', monospace;
+    font-size: 34px;
+    font-weight: 600;
+    font-stretch: 90%;
+    text-align: right;
+  }
+  .unit {
+    font-size: 15px;
+    font-weight: 400;
+    color: var(--muted);
+    margin-left: 6px;
+  }
+  .bar {
+    grid-column: 1 / -1;
+    height: 12px;
+    background: var(--rule);
+    border-radius: 2px;
+  }
+  .bar i {
+    display: block;
+    height: 100%;
+    border-radius: 2px;
+    background: var(--ink);
+  }
+  .win .value {
+    color: var(--accent-text);
+  }
+  .win .bar i {
+    background: var(--accent);
+  }
+
+  .foot {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-top: 26px;
+    border-top: 1px solid var(--rule);
+    font-family: 'Martian Mono', monospace;
+    font-size: 17px;
+    font-stretch: 88%;
+    letter-spacing: 0.02em;
+  }
+  .host {
+    font-weight: 600;
+  }
+  .meta {
+    color: var(--muted);
+    font-size: 14px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+</style>
+
+<div class="top">
+  <div>
+    <p class="kicker">{{kicker}}</p>
+    <h1 class="wordmark"><span>DeepSeek</span><span>Harness</span></h1>
+    <p class="claim">{{claim}}</p>
+  </div>
+  <div class="rows">{{rows}}</div>
+</div>
+
+<div class="foot">
+  <span class="host">{{host}}</span>
+  <span class="meta">{{footMeta}}</span>
+</div>

@@ -19,5 +19,5 @@
     "erasableSyntaxOnly": true,
     "allowJs": true
   },
-  "include": ["scripts/**/*.ts", "runtime/**/*.js"]
+  "include": ["scripts/**/*.ts", "web-src/**/*.ts", "runtime/**/*.js"]
 }

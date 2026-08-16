@@ -102,6 +102,11 @@ function main(): void {
   mkdirSync(design, { recursive: true });
   writeFileSync(join(design, 'icon.svg'), svg);
 
+  // The site wears the same icon as the app, from the same artwork, in the same command.
+  // It is committed because `design/` is not, and because the landing page has to build from
+  // a clean checkout — upstream's favicon only exists after a backend build.
+  writeFileSync(join(root, 'web-src', 'icon.svg'), svg);
+
   // The render HTML is an intermediate artifact; keep it out of the repo directory.
   const html = join(tmpdir(), 'dsh-desktop-icon-render.html');
   writeFileSync(html, wrapForRender(svg, MACOS_LAYOUT.size));
@@ -130,7 +135,9 @@ function main(): void {
   );
 
   console.log(`[make-icon] brand blue ${BRAND_BLUE}, artwork from ${FAVICON_PATH}`);
-  console.log(`[make-icon] design/icon.svg + design/icon.png + src-tauri/icons/ updated`);
+  console.log(
+    `[make-icon] design/icon.svg + design/icon.png + src-tauri/icons/ + web-src/icon.svg updated`,
+  );
 }
 
 if (process.argv[1] !== undefined && resolve(process.argv[1]).endsWith('make-icon.ts')) main();

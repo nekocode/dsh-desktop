@@ -28,6 +28,16 @@ function bucket(objects: Record<string, string>) {
   };
 }
 
+/** Stand-in for the static-assets binding: echoes back which asset was asked for. */
+function assets() {
+  return {
+    fetch: async (request: Request) =>
+      new Response(`asset:${new URL(request.url).pathname}`, {
+        headers: { 'content-type': 'text/html; charset=utf-8' },
+      }),
+  };
+}
+
 const DMG = 'dl/v0.2.0/DeepSeek-Harness-0.2.0-arm64.dmg';
 const env = () =>
   ({
@@ -35,6 +45,7 @@ const env = () =>
       'updates/darwin-aarch64.json': '{"version":"0.2.0"}',
       [DMG]: 'MZ-pretend-a-disk-image',
     }),
+    ASSETS: assets(),
   }) as never;
 
 const fetch = (path: string, init?: RequestInit) =>
@@ -67,9 +78,30 @@ test('an unlisted path is refused before the bucket is ever touched', async () =
   const response = await worker.fetch(
     new Request('https://dsh-desktop.xiu.ai/secret.txt'),
     // A null binding proves the refusal happens without a lookup: touching it would throw.
-    { DIST_BUCKET: null } as never,
+    { DIST_BUCKET: null, ASSETS: assets() } as never,
   );
   assert.equal(response.status, 404);
+});
+
+test('a path that is neither an artifact nor a page gets the landing page 404', async () => {
+  const response = await fetch('/nope');
+  assert.equal(response.status, 404);
+  assert.equal(await response.text(), 'asset:/404.html');
+  assert.match(response.headers.get('content-type') ?? '', /text\/html/);
+});
+
+test('a Chinese reader who mistypes a URL is answered in Chinese', async () => {
+  // The whole reason the 404 is served here rather than by the asset layer is that the choice
+  // depends on the path, which only this handler sees.
+  assert.equal(await (await fetch('/zh/nope')).text(), 'asset:/zh/404.html');
+});
+
+test('an artifact path with nothing behind it gets the same page, not a bare string', async () => {
+  // A wrong download URL is a wrong URL. Answering it with `Not found` in plain text told a
+  // person nothing and offered them nowhere to go.
+  const response = await fetch('/dl/v9.9.9/DeepSeek-Harness-9.9.9-arm64.dmg');
+  assert.equal(response.status, 404);
+  assert.equal(await response.text(), 'asset:/404.html');
 });
 
 test('HEAD answers with the size without pulling the body out of R2', async () => {

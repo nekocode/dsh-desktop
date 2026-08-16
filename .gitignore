@@ -16,6 +16,10 @@ src-tauri/gen/
 # Wrangler's local scratch state (including a simulated copy of the R2 bucket).
 .wrangler/
 
+# The rendered landing page. Derived from web-src/ by `npm run build:web`, which the deploy
+# runs first, so the deployed page is always built from the source in this commit.
+web/
+
 # Icons: the single source of truth is scripts/make-icon.ts (artwork from the upstream
 # favicon, color from the official brand blue); `npm run icon` regenerates the whole set.
 # Keep only the two the macOS build actually needs (verified: without icon.png,

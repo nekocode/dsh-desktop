@@ -42,7 +42,9 @@ const WRANGLER_PROFILE = process.env.WRANGLER_PROFILE ?? 'xiu';
 const VERIFY_ATTEMPTS = 5;
 const VERIFY_DELAY_MS = 4000;
 
-const sha256 = (bytes: Buffer | Uint8Array) => createHash('sha256').update(bytes).digest('hex');
+/** Exported because `make-fonts.ts` hashes its output the same way; one spelling, one meaning. */
+export const sha256 = (bytes: Buffer | Uint8Array) =>
+  createHash('sha256').update(bytes).digest('hex');
 
 const sleep = (ms: number) => new Promise((done) => setTimeout(done, ms));
 

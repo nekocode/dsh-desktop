@@ -1,0 +1,88 @@
+<main id="main">
+  <!-- ————— hero ————— -->
+  <header class="hero">
+    <div class="container hero-grid">
+      <div class="hero-copy">
+        <p class="pill rise" style="--i: 0">
+          <span class="pulse" aria-hidden="true"></span>
+          <!-- Filled from the live manifest at the end of this file. A dash rather than a
+             hardcoded number: an obviously pending placeholder beats a quietly stale fact. -->
+          <span class="version">{{versionFallback}}</span> · {{heroPillMeta}}
+        </p>
+        <h1 class="wordmark rise" style="--i: 1"><span>DeepSeek</span><span>Harness</span></h1>
+        <p class="claim rise" style="--i: 2">{{heroClaim}}</p>
+        <p class="lede rise" style="--i: 3">{{heroLede}}</p>
+        <div class="cta rise" style="--i: 4">
+          <a class="btn" href="{{dmgHref}}"
+            ><span class="btn-arrow" aria-hidden="true">↓</span>{{ctaDownload}}</a
+          >
+          <p class="cta-meta">
+            {{ctaMeta}} ·
+            <a href="{{repoReleasesHref}}" target="_blank" rel="noopener">{{releaseNotes}}</a>
+          </p>
+        </div>
+      </div>
+
+      <!-- The size table is the argument, so it is the object in the hero rather than a section
+         further down. Bars are scaled against the largest row by web-src/render.ts. -->
+      <figure class="spec-card rise" style="--i: 2">
+        <figcaption class="spec-head"><span class="idx">01</span>{{sizeHeading}}</figcaption>
+        <ol class="spec" role="list">
+          {{sizeTable}}
+        </ol>
+        <p class="spec-note">{{sizeNote}}</p>
+      </figure>
+    </div>
+  </header>
+
+  <!-- ————— how ————— -->
+  <section class="band" id="how">
+    <div class="container">
+      <h2 class="section-head"><span class="idx">02</span>{{featuresHeading}}</h2>
+      <div class="cards">
+        <article class="card">
+          <h3>{{webviewTitle}}</h3>
+          <p>{{webviewBody}}</p>
+        </article>
+        <article class="card">
+          <h3>{{upstreamTitle}}</h3>
+          <p>{{upstreamBody}}</p>
+        </article>
+        <article class="card">
+          <h3>{{updateTitle}}</h3>
+          <p>{{updateBody}}</p>
+        </article>
+        <article class="card">
+          <h3>{{profileTitle}}</h3>
+          <p>{{profileBody}}</p>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <!-- ————— download ————— -->
+  <section class="band band-last" id="download">
+    <div class="container">
+      <h2 class="section-head"><span class="idx">03</span>{{downloadHeading}}</h2>
+      <!-- Three platforms, one artifact. The rows come from the DOWNLOADS table, where a
+         planned entry has nowhere to point by construction. -->
+      <ul class="dl-list" role="list">
+        {{downloadTable}}
+      </ul>
+      <p class="planned-note">{{plannedNote}}</p>
+    </div>
+  </section>
+</main>
+
+<!-- The version in the hero pill. The update manifest is the single source of truth for what
+     is shipping; failing quietly is correct, since the dash it replaces is already honest. -->
+<script>
+  fetch('{{manifestHref}}')
+    .then((response) => (response.ok ? response.json() : null))
+    .then((manifest) => {
+      if (!manifest?.version) return;
+      for (const slot of document.querySelectorAll('.version'))
+        slot.textContent = 'v' + manifest.version;
+    })
+    .catch(() => {});
+</script>

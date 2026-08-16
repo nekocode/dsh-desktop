@@ -1,6 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import {
+  ARTIFACT_PREFIXES,
   DIST_BASE_URL,
   PLATFORM,
   classify,
@@ -86,4 +88,31 @@ test('the latest alias carries no version — it is the link a download page can
 
 test('the base URL is https — the updater refuses plain http in release builds', () => {
   assert.ok(DIST_BASE_URL.startsWith('https://'));
+});
+
+test('every artifact prefix is one the Worker is guaranteed to see first', () => {
+  // Static assets are served ahead of the Worker unless a path is listed here. A prefix that
+  // is not would be answered by the asset layer — which for a navigation request means the
+  // 404 page instead of the download, in browsers only, silently.
+  const wrangler = readFileSync(new URL('../wrangler.jsonc', import.meta.url), 'utf8');
+  for (const prefix of ARTIFACT_PREFIXES) {
+    assert.ok(
+      wrangler.includes(`"/${prefix}/*"`),
+      `wrangler.jsonc does not run_worker_first /${prefix}/*`,
+    );
+  }
+});
+
+test('every route the Worker serves sits under a declared prefix', () => {
+  for (const key of [
+    manifestKey(PLATFORM),
+    releaseKey('0.2.0', dmgName('0.2.0')),
+    latestKey(latestDmgName()),
+  ]) {
+    const [prefix] = key.split('/');
+    assert.ok(
+      (ARTIFACT_PREFIXES as readonly string[]).includes(prefix as string),
+      `${key} is published under an undeclared prefix`,
+    );
+  }
 });

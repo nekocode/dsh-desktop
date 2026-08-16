@@ -5,11 +5,17 @@
  * the path happens to say would turn the host into a public proxy for every object the bucket may
  * ever hold, including artifacts that were never meant to be downloadable.
  *
- * Deployed by `wrangler deploy` (see `wrangler.jsonc`); the routing rules have unit tests, which is
- * why this is a real file rather than something a deploy script echoes into place.
+ * It also fronts the landing page, which ships as this Worker's static assets — the hostname is
+ * already a Worker custom domain, so nothing else can claim it.
+ *
+ * Deployed by `npm run deploy:dist`, which renders `web/` first; a bare `wrangler deploy` would
+ * upload whatever that directory happens to hold, and it is not tracked. The routing rules have
+ * unit tests, which is why this is a real file rather than something a deploy script echoes
+ * into place.
  */
 
 import { classify, type ArtifactKind } from './dist-paths.ts';
+import { notFoundUrlFor } from '../web-src/site.ts';
 
 /** R2 surface actually used here. Typing only these three keeps the tests free of a Workers runtime. */
 type Bucket = {
@@ -25,7 +31,10 @@ type Bucket = {
   } | null>;
 };
 
-type Env = { DIST_BUCKET: Bucket };
+/** The static-assets binding. Only `fetch` is used, so only `fetch` is typed. */
+type Assets = { fetch(request: Request): Promise<Response> };
+
+type Env = { DIST_BUCKET: Bucket; ASSETS: Assets };
 
 // A versioned key is written once and never overwritten, so it can be cached until the heat death of
 // the universe. Manifests and `latest` aliases are rewritten by every release: cache them long and
@@ -64,14 +73,32 @@ export function wantsRange(headers: Headers): boolean {
   return headers.get('range') !== null;
 }
 
-function notFound(): Response {
-  return new Response('Not found', { status: 404 });
+/**
+ * The landing page's 404, in the reader's language, served by this Worker rather than by the
+ * asset layer's `not_found_handling`.
+ *
+ * That option cannot be used here. Since compatibility date 2025-04-01 the runtime prefers
+ * asset serving for navigation requests, so with a `404-page` fallback configured, clicking a
+ * download link — a navigation request that matches no static asset — would be answered with
+ * the 404 page instead of ever reaching this handler. Every browser download would break, and
+ * nothing but a browser would notice.
+ *
+ * A missing artifact is answered the same way. It is a wrong URL, not a different kind of
+ * event, and the page says so in a form a person can read.
+ */
+async function notFound(url: URL, env: Env): Promise<Response> {
+  const page = await env.ASSETS.fetch(new Request(new URL(notFoundUrlFor(url.pathname), url)));
+  return new Response(page.body, {
+    status: 404,
+    headers: { 'content-type': page.headers.get('content-type') ?? 'text/html; charset=utf-8' },
+  });
 }
 
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
-    const artifact = classify(new URL(request.url).pathname);
-    if (!artifact) return notFound();
+    const url = new URL(request.url);
+    const artifact = classify(url.pathname);
+    if (!artifact) return notFound(url, env);
 
     const { contentType, cacheControl } = httpMetadataFor(artifact.kind);
     const headers = new Headers({
@@ -82,7 +109,7 @@ export default {
     if (request.method === 'HEAD') {
       // head() skips the body entirely, saving a full read of a 35 MB object per probe.
       const meta = await env.DIST_BUCKET.head(artifact.key);
-      if (!meta) return notFound();
+      if (!meta) return notFound(url, env);
       headers.set('etag', meta.httpEtag);
       headers.set('content-length', String(meta.size));
       headers.set('accept-ranges', 'bytes');
@@ -102,7 +129,7 @@ export default {
     if (isRange) options.range = request.headers;
 
     const object = await env.DIST_BUCKET.get(artifact.key, options);
-    if (!object) return notFound();
+    if (!object) return notFound(url, env);
 
     headers.set('etag', object.httpEtag);
     headers.set('accept-ranges', 'bytes');

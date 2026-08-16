@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="{{lang}}">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    {{seoHead}}
+    <link rel="icon" href="/icon.svg" type="image/svg+xml" />
+    <!-- The square app icon, not the share card: Apple crops a wide image to a square and
+         would hand someone a home-screen tile made of the middle of a bar chart. -->
+    <link rel="apple-touch-icon" href="{{appleTouchIconHref}}" />
+    <!-- Browser chrome reads its colour from here and cannot see a CSS variable, so this is the
+     one place --paper is spelled as a literal. The dark value is the second entry. -->
+    <meta name="theme-color" content="#F6F5F2" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#0D0E11" media="(prefers-color-scheme: dark)" />
+    {{headAssets}}
+  </head>
+  <body>
+    <a class="skip" href="#main">{{skipToContent}}</a>
+
+    <nav id="nav">
+      <div class="container nav-inner">
+        <a class="brand" href="{{homeHref}}">
+          <img src="/icon.svg" alt="" width="22" height="22" />
+          <span>DeepSeek Harness</span>
+        </a>
+        <div class="nav-links">
+          <a href="{{repoHref}}" target="_blank" rel="noopener">{{navSource}}</a>
+          <!-- The language control is a <select>: two languages today, and a row of links would
+           have to be redesigned the moment there is a third. -->
+          <label class="lang">
+            <span class="sr-only">{{langLabel}}</span>
+            <select id="lang">
+              {{langOptions}}
+            </select>
+          </label>
+          <a class="btn btn-xs" href="{{dmgHref}}">{{navDownload}}</a>
+        </div>
+      </div>
+    </nav>
+
+    {{content}}
+
+    <footer id="footer">
+      <div class="container footer-inner">
+        <p class="footer-note">{{footerDisclaimer}}</p>
+        <nav class="footer-links">
+          <a href="{{repoHref}}" target="_blank" rel="noopener">{{footerSource}}</a>
+          <a href="{{repoReleasesHref}}" target="_blank" rel="noopener">{{footerReleases}}</a>
+          <a href="{{upstreamHref}}" target="_blank" rel="noopener">{{footerUpstream}}</a>
+        </nav>
+      </div>
+    </footer>
+
+    <!-- The only script the shell needs. At the end of the body because the <select> is already
+     in the DOM by now, so there is no event to wait for. -->
+    <script>
+      document.getElementById('lang')?.addEventListener('change', (event) => {
+        location.assign(event.target.value);
+      });
+    </script>
+  </body>
+</html>

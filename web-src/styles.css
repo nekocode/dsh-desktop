@@ -1,0 +1,346 @@
+/* The shell every page wears: tokens, base typography, nav, footer, the button, and the one
+   rule that switches motion off. Split from the page's own sections because this file was past
+   the project's 700-line ceiling, and because the 404 needs none of the hero, the size table or
+   the download list — it should not download them.
+
+   One aesthetic, stated once: an engineering spec sheet. Paper ground, hairline rules, data set
+   in a monospace, one accent colour and no second one. The page's whole argument is that 249 MB
+   were deleted from the product, so the page itself is built the same way — no framework, no
+   second accent, no decoration that is not carrying information.
+
+   Both typefaces are variable on width as well as weight, and the width axis is used as a real
+   design dimension: the wordmark is expanded, the data layer is condensed. That costs no extra
+   file, which is the point. */
+
+/* Latin only, subset by scripts/make-fonts.ts. The filenames repeat web-src/fonts.ts because CSS
+   cannot import TypeScript; fonts.test.ts fails the build when the two disagree. */
+@font-face {
+  font-family: 'Archivo';
+  src: url('/archivo-eb8ac466.woff2') format('woff2');
+  font-weight: 400 700;
+  font-stretch: 62% 125%;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Martian Mono';
+  src: url('/martian-mono-190af6b9.woff2') format('woff2');
+  font-weight: 300 800;
+  font-stretch: 75% 112.5%;
+  font-display: swap;
+}
+
+*,
+*::before,
+*::after {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+:root {
+  --paper: #f6f5f2;
+  --panel: #fffefb;
+  --ink: #14151a;
+  --body: #454852;
+  --muted: #85888f;
+  --rule: #e0ded7;
+  --rule-strong: #cbc8bf;
+  /* The official brand blue. scripts/make-icon.ts owns the value; styles.test.ts compares. */
+  --accent: #4d6bfe;
+  --accent-text: #3a55e0;
+  --accent-wash: color-mix(in srgb, var(--accent) 8%, transparent);
+
+  /* Chinese has no subset here — shipping a CJK face would cost megabytes — so it falls through
+     to the system stack. The design is built to hold up with Latin and CJK in different families. */
+  --display:
+    'Archivo', -apple-system, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
+  --mono: 'Martian Mono', ui-monospace, 'SF Mono', Menlo, monospace;
+
+  --content-max: 1180px;
+  --gutter: clamp(20px, 5vw, 48px);
+  --band-pad: clamp(64px, 9vw, 116px);
+  --grid-step: 88px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --paper: #0d0e11;
+    --panel: #15171c;
+    --ink: #f1f1ef;
+    --body: #a7acb6;
+    --muted: #6d727c;
+    --rule: #23262c;
+    --rule-strong: #343841;
+    /* The brand blue is a fill colour, not a text colour, once the ground is near-black: at
+       4.4:1 it fails small text. Text takes a lifted tint; fills keep the official value. */
+    --accent-text: #93a6ff;
+    --accent-wash: color-mix(in srgb, var(--accent) 14%, transparent);
+  }
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--display);
+  font-size: 16px;
+  line-height: 1.62;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overflow-x: hidden;
+}
+
+a {
+  color: var(--accent-text);
+  text-decoration: none;
+}
+
+.container {
+  max-width: var(--content-max);
+  margin: 0 auto;
+  padding: 0 var(--gutter);
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* Off-screen until focused. Keyboard users get it first; nobody else ever sees it. */
+.skip {
+  position: absolute;
+  left: -999px;
+  top: 0;
+  z-index: 200;
+  background: var(--ink);
+  color: var(--paper);
+  padding: 0.7rem 1rem;
+  font-family: var(--mono);
+  font-size: 0.75rem;
+}
+.skip:focus {
+  left: 0;
+}
+
+/* --- nav --- */
+
+#nav {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  background: color-mix(in srgb, var(--paper) 82%, transparent);
+  backdrop-filter: blur(14px) saturate(150%);
+  -webkit-backdrop-filter: blur(14px) saturate(150%);
+  border-bottom: 1px solid var(--rule);
+}
+
+.nav-inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  height: 58px;
+}
+
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  color: var(--ink);
+  font-weight: 600;
+  font-stretch: 92%;
+  font-size: 0.9375rem;
+  letter-spacing: -0.01em;
+}
+.brand img {
+  border-radius: 5px;
+}
+
+.nav-links {
+  display: flex;
+  align-items: center;
+  gap: clamp(0.75rem, 2vw, 1.5rem);
+  font-family: var(--mono);
+  font-size: 0.75rem;
+  font-stretch: 88%;
+}
+.nav-links > a {
+  color: var(--body);
+}
+.nav-links > a:hover {
+  color: var(--ink);
+}
+
+.lang select {
+  font: inherit;
+  font-family: var(--mono);
+  color: var(--body);
+  background: transparent;
+  border: 1px solid var(--rule-strong);
+  border-radius: 2px;
+  padding: 0.25rem 0.4rem;
+  cursor: pointer;
+}
+.lang select:hover {
+  color: var(--ink);
+  border-color: var(--ink);
+}
+
+/* --- the button ---
+   One filled button, three sizes. The nav CTA, the hero CTA and the download-row button were
+   three near-identical rules across two files, so changing the hover colour or the radius meant
+   finding all three.
+
+   Selected as `a.btn` rather than `.btn`: the plain-link rules above and in the download list
+   are written with an element in the selector, and a bare class loses to them — which paints
+   link-grey text onto a filled button. */
+a.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  background: var(--ink);
+  color: var(--paper);
+  font-family: var(--mono);
+  font-size: 0.8125rem;
+  font-stretch: 88%;
+  font-weight: 500;
+  padding: 0.85rem 1.3rem;
+  border-radius: 2px;
+  transition:
+    background 0.18s,
+    transform 0.18s;
+}
+a.btn:hover {
+  background: var(--accent);
+  color: #fff;
+  transform: translateY(-1px);
+}
+
+/** The two smaller sizes. Only ever size — the treatment stays one decision. */
+a.btn-sm {
+  font-size: 0.75rem;
+  padding: 0.6rem 1rem;
+}
+a.btn-xs {
+  font-size: 0.75rem;
+  padding: 0.45rem 0.85rem;
+}
+
+.btn-arrow {
+  font-size: 1em;
+  transition: transform 0.18s;
+}
+.btn:hover .btn-arrow {
+  transform: translateY(2px);
+}
+
+.lede {
+  margin-top: 1.1rem;
+  color: var(--body);
+  font-size: 1.0625rem;
+  max-width: 48ch;
+  /* Keeps the last line from being a single word. Chinese wraps per character, so without it
+     a two-line paragraph can end on one glyph and a full stop. */
+  text-wrap: pretty;
+}
+
+/* The section index numerals — 01 the size table, 02 how, 03 how to get it, and 404 on the
+   error page, which is why this lives in the shell rather than with the sections. */
+.idx {
+  color: var(--accent-text);
+  font-weight: 700;
+}
+
+/* --- footer --- */
+
+#footer {
+  padding: clamp(32px, 5vw, 56px) 0;
+}
+.footer-inner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+.footer-note {
+  font-size: 0.8125rem;
+  color: var(--muted);
+  max-width: 46ch;
+}
+.footer-links {
+  display: flex;
+  gap: 1.25rem;
+  font-family: var(--mono);
+  font-size: 0.6875rem;
+  font-stretch: 85%;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.footer-links a {
+  color: var(--body);
+}
+.footer-links a:hover {
+  color: var(--ink);
+}
+
+/* --- 404 --- */
+
+.notfound {
+  padding: clamp(80px, 16vw, 200px) 0;
+}
+.notfound .idx {
+  font-family: var(--mono);
+  font-size: 0.75rem;
+  letter-spacing: 0.2em;
+}
+.notfound h1 {
+  margin-top: 0.8rem;
+  font-size: clamp(2rem, 5.5vw, 3.4rem);
+  font-weight: 700;
+  font-stretch: 108%;
+  line-height: 1.02;
+  letter-spacing: -0.03em;
+  max-width: 16ch;
+}
+.notfound .lede {
+  margin-bottom: 2rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001s !important;
+    animation-delay: 0s !important;
+    transition-duration: 0.001s !important;
+    /* Duration alone lands a finite animation on its end state, but leaves an infinite one
+       restarting forever — a reader who asked for less motion would get more of it. */
+    animation-iteration-count: 1 !important;
+  }
+}
+
+/* --- narrow --- */
+
+@media (max-width: 560px) {
+  .nav-links {
+    gap: 0.7rem;
+  }
+  .brand span {
+    display: none;
+  }
+  .footer-inner {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}

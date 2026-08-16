@@ -32,6 +32,16 @@ const DMG_ARCH = 'arm64';
 
 export type ArtifactKind = 'manifest' | 'release' | 'latest';
 
+/**
+ * The path prefixes every published artifact lives under.
+ *
+ * `wrangler.jsonc` restates these as `run_worker_first` globs — it cannot import TypeScript —
+ * and `dist-paths.test.ts` fails when the two disagree. Without that, adding a prefix here
+ * would leave the new route relying on the asset layer *not* claiming it first, which is the
+ * exact accident `run_worker_first` exists to stop depending on.
+ */
+export const ARTIFACT_PREFIXES = ['dl', 'updates'] as const;
+
 /** Per-platform update manifest. One file per platform, never a shared `latest.json`. */
 export function manifestKey(platform: string): string {
   return `updates/${platform}.json`;

@@ -16,4 +16,22 @@
   "workers_dev": false,
   "routes": [{ "pattern": "dsh-desktop.xiu.ai", "custom_domain": true }],
   "r2_buckets": [{ "binding": "DIST_BUCKET", "bucket_name": "dsh-desktop-dist" }],
+
+  // The landing page ships from this Worker rather than a separate Pages project: the hostname
+  // is already a Worker custom domain, and nothing else can claim it. `npm run deploy:dist`
+  // rebuilds `web/` first (see `predeploy:dist`), so the page can never be deployed stale.
+  //
+  // `not_found_handling` is deliberately left at its default of "none". Since compatibility date
+  // 2025-04-01 the runtime prefers asset serving for navigation requests, so a "404-page"
+  // fallback would answer a clicked download link — a navigation request matching no static
+  // asset — with the 404 page and never reach the Worker. `dist-worker.ts` serves the 404 page
+  // itself, which is also the only way it can pick the reader's language.
+  //
+  // `run_worker_first` states the same guarantee declaratively instead of resting on the absence
+  // of a fallback: an artifact path reaches the handler, whatever the asset layer would prefer.
+  "assets": {
+    "directory": "./web",
+    "binding": "ASSETS",
+    "run_worker_first": ["/dl/*", "/updates/*"],
+  },
 }

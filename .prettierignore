@@ -1,3 +1,6 @@
 build/
 node_modules/
 *.md
+
+# Rendered site. Derived from web-src/, and its formatting is the templates' business.
+web/
