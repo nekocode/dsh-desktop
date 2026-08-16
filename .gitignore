@@ -1,0 +1,45 @@
+# Dependencies and build output
+node_modules/
+build/
+dist/
+target/
+
+# Sidecar runtime binary (60 MB of Bun).
+# Produced by `npm run stage:runtime`, copied and stripped from the local bun/node —
+# purely derived, so committing it would stuff a whole runtime into git history,
+# plus another 60 MB on every upgrade.
+src-tauri/binaries/
+
+# Capability schema Tauri generates at build time; it follows tauri.conf.json, not source.
+src-tauri/gen/
+
+# Icons: the single source of truth is scripts/make-icon.ts (artwork from the upstream
+# favicon, color from the official brand blue); `npm run icon` regenerates the whole set.
+# Keep only the two the macOS build actually needs (verified: without icon.png,
+# generate_context! fails at compile time with "failed to open icon"; the dozens of
+# Windows/Android/iOS ones are all unused here).
+src-tauri/icons/*
+!src-tauri/icons/icon.icns
+!src-tauri/icons/icon.png
+
+# Intermediate output of `npm run icon`: written only to be fed to `tauri icon`.
+# Nothing in the build reads it, so tracking it would be a second copy of a derived artifact.
+design/
+
+# Credentials. This project has run against a real API key, so these are a hard block.
+.env
+.env.*
+*.p8
+*.p12
+*.cer
+*.mobileprovision
+
+.DS_Store
+*.log
+
+# Local markdown, including the planning files
+*.local.md
+/findings.md
+/progress.md
+/task_plan.md
+/.planning/

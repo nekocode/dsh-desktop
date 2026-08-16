@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>DeepSeek Harness</title>
+    <style>
+      /*
+        This loading page exists only until the backend is up, at which point Rust navigates the
+        webview away entirely. So it must have zero dependencies: no external resources, no Tauri
+        JS API — if the loading page itself goes blank, the user can never see the failure reason.
+      */
+      :root {
+        color-scheme: light dark;
+        --bg: #ffffff;
+        --fg: #1a1a1a;
+        --muted: #8a8a8a;
+        --line: #e5e5e5;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bg: #1a1a1a;
+          --fg: #ededed;
+          --line: #2f2f2f;
+        }
+      }
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      body {
+        height: 100vh;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 18px;
+        background: var(--bg);
+        color: var(--fg);
+        font:
+          13px/1.6 -apple-system,
+          BlinkMacSystemFont,
+          'Helvetica Neue',
+          sans-serif;
+        -webkit-user-select: none;
+      }
+      .spinner {
+        width: 22px;
+        height: 22px;
+        border: 2px solid var(--line);
+        border-top-color: var(--muted);
+        border-radius: 50%;
+        animation: spin 0.7s linear infinite;
+      }
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+      .hint {
+        color: var(--muted);
+      }
+      #error {
+        display: none;
+        max-width: 560px;
+        padding: 0 32px;
+      }
+      #error h1 {
+        font-size: 14px;
+        margin-bottom: 10px;
+      }
+      #error pre {
+        max-height: 42vh;
+        overflow: auto;
+        padding: 12px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        font:
+          11px/1.5 ui-monospace,
+          SFMono-Regular,
+          Menlo,
+          monospace;
+        color: var(--muted);
+        white-space: pre-wrap;
+        -webkit-user-select: text;
+      }
+      body.failed .loading {
+        display: none;
+      }
+      body.failed #error {
+        display: block;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="loading spinner"></div>
+    <div class="loading hint">Starting DeepSeek Harness…</div>
+
+    <div id="error">
+      <h1>Startup failed</h1>
+      <pre id="reason"></pre>
+    </div>
+
+    <script>
+      // The Rust side evals a call to this on failure. It is a global function rather than an
+      // event listener so that it depends on nothing Tauri injects.
+      window.dshFailed = function (reason) {
+        document.getElementById('reason').textContent = String(reason);
+        document.body.classList.add('failed');
+      };
+    </script>
+  </body>
+</html>

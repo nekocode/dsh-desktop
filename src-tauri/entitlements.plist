@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!--
+	  Under Hardened Runtime, V8 cannot start unless JIT is allowed. These two are hard
+	  prerequisites for running Node as a sidecar: without either, the kernel kills the process
+	  outright and the log says only "Killed: 9".
+	-->
+	<key>com.apple.security.cs.allow-jit</key>
+	<true/>
+	<key>com.apple.security.cs.allow-unsigned-executable-memory</key>
+	<true/>
+
+	<!--
+	  node-pty's pty.node and spawn-helper are re-signed by us, but they are not part of a
+	  same-Team-ID "single code signature" chain; without relaxing library validation, dlopen is
+	  refused.
+	-->
+	<key>com.apple.security.cs.disable-library-validation</key>
+	<true/>
+
+	<!--
+	  The agent runs bash and reads and writes workspace files on the user's behalf. Developer ID
+	  distribution is unsandboxed by default, and the deliberate absence of app-sandbox here is
+	  exactly that — written down so it reads as intentional.
+	-->
+</dict>
+</plist>
