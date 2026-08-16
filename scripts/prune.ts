@@ -14,12 +14,17 @@ export type PruneRules = {
 };
 
 /**
- * Derived, not written down: `stage-runtime.ts` picks the sidecar triple from the same two values.
- * A hard-coded arch here would silently keep the wrong prebuild on a host it does not match, and
- * the only symptom would be a confusing "missing native artifact" much later in the build.
+ * The host tag every per-platform package name is built from.
+ *
+ * Derived, not written down: `stage-runtime.ts` picks the sidecar triple from the same two values,
+ * and `ripgrep-shim.ts` names its native package with it. A hard-coded arch would silently keep the
+ * wrong artifact on a host it does not match, and the only symptom would be a confusing
+ * "missing native artifact" much later in the build.
  */
+export const HOST_TAG = `${process.platform}-${process.arch}`;
+
 export const DEFAULT_PRUNE: PruneRules = {
-  prebuildDir: `${process.platform}-${process.arch}`,
+  prebuildDir: HOST_TAG,
   dropMathFonts: true,
 };
 

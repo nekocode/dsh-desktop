@@ -1,8 +1,13 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { HOST_TAG } from './prune.ts';
+import { RIPGREP_REPLACEMENT } from './ripgrep-shim.ts';
 import {
   assertCutPlanesComplete,
+  assertSearchHasBinary,
   AGGRESSIVE_PACKAGES,
+  entryReplacementsFor,
+  replacementPackages,
   droppedPackagePrefixes,
   PACKAGE_CUTS,
   resolvePackageCuts,
@@ -46,6 +51,31 @@ test('images / sessionSearch / workflow must stay off — all are hard dependenc
   assert.equal(AGGRESSIVE.images, false);
   assert.equal(AGGRESSIVE.sessionSearch, false);
   assert.equal(AGGRESSIVE.workflow, false);
+});
+
+test('fileSearch stays off — the wasm swap keeps the tools at 17% of the weight', () => {
+  assert.equal(AGGRESSIVE.fileSearch, false);
+  assert.equal(AGGRESSIVE_PACKAGES.nativeRipgrep, true);
+});
+
+test('entryReplacementsFor and replacementPackages follow the resolved cuts', () => {
+  assert.deepEqual(entryReplacementsFor([]), []);
+  assert.deepEqual(replacementPackages([]), []);
+  // The packages a replacement needs are derived from it, so the two can never disagree.
+  assert.deepEqual(replacementPackages(['nativeRipgrep']), [...RIPGREP_REPLACEMENT.needs]);
+});
+
+test('the ripgrep cut drops a host-specific package — a hard-coded arch drops the wrong one', () => {
+  assert.equal(PACKAGE_CUTS.nativeRipgrep.packages[0], `@vscode/ripgrep-${HOST_TAG}`);
+});
+
+test('keeping the search rows without a binary supplier is rejected — it ships a broken search', () => {
+  assert.throws(() => assertSearchHasBinary([], []), /ripgrep binary/);
+});
+
+test('either cutting the rows or swapping in wasm satisfies the search invariant', () => {
+  assertSearchHasBinary(['fileSearch'], []);
+  assertSearchHasBinary([], ['nativeRipgrep']);
 });
 
 test('renderPatch emits a disabled entry for every cut row', () => {

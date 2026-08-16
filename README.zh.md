@@ -10,7 +10,7 @@ Tauri 2 壳（系统 WKWebView，不打包 Chromium）+ 裁剪过的 dsh 后端 
 | | 体积 |
 |---|---|
 | `npm i @deepseek-ai/dsh` 原样 | 344 MB |
-| 裁剪后的 backend | 39 MB |
+| 裁剪后的 backend | 40 MB |
 | 安装后 `.app` | 102 MB |
 | DMG | 37 MB |
 
@@ -42,11 +42,10 @@ npm run check          # typecheck + format + JS 单测 + clippy + Rust 单测
 APPLE_TEAM_ID=<你的 team> ./scripts/dist.sh
 ```
 
-公证凭据从 `NOTARIZE_KEY_ID` / `NOTARIZE_ISSUER` / `NOTARIZE_KEY_PATH` 读
-（和 App Store Connect API Key 的常见约定一致）。只签名不公证：`SKIP_NOTARIZE=true`。
+公证凭据从 `NOTARIZE_KEY_ID` / `NOTARIZE_ISSUER` / `NOTARIZE_KEY_PATH` 读。
+只签名不公证：`SKIP_NOTARIZE=true`。
 
-脚本会逐个验证嵌套二进制的签名 —— Gatekeeper 拦的是最里面那个没签的文件，
-而外层 `.app` 的签名照样显示「有效」，这是 Tauri sidecar 最常见的翻车点。
+嵌套二进制由脚本自己逐个签 —— Tauri 只签外层。原因写在 `scripts/dist.sh` 里。
 
 ## 裁剪掉了什么
 
@@ -56,29 +55,24 @@ APPLE_TEAM_ID=<你的 team> ./scripts/dist.sh
 |---|---|---|---|
 | `foreignProviders` | pi-ai（anthropic / google / mistral / aws / openai 五套 SDK） | 70 MB | 只剩 DeepSeek 官方通道 |
 | `telemetry` | OpenTelemetry 导出 | 34 MB | 无（上游默认就是 DISABLED） |
-| `fileSearch` | `@vscode/ripgrep` | 5.5 MB | **失去 grep / glob 工具** |
 | `workflow` | 多智能体 workflow 编排 | 0.5 MB | 首版不做 |
 
 还剪掉了：59 个 KaTeX 字体、全部 sourcemap 和 `.d.ts`、三个非本机平台的 node-pty prebuild。
 
-### sharp 的 18 MB：留插件、换底座
+另有两个依赖是**换掉**而不是砍掉 —— 拉进它们的插件删不得：
 
-`dsh-host-apiproxy` 把 `attachments` 写进 `static inject`，所以 `dsh-attachment-local`
-**不能删**。但这个包里唯一的模型通道 `dsh-llm-deepseek` 明确拒绝图片内容
-（`"The DeepSeek chat-completions adapter does not support image content."`）——
-图片根本到不了模型，却要为此背 18 MB 的 libvips。
+| 换 | 从 | 到 |
+|---|---|---|
+| `imageDecoding` | sharp + libvips，18 MB | 纯 JS 文件头解析，`runtime/sharp-shim.js` |
+| `nativeRipgrep` | `@vscode/ripgrep` 二进制，4.3 MB | 同一个 ripgrep 的 wasm 版，768 KB，`runtime/ripgrep-shim.js` |
 
-于是把 sharp 换成纯 JS 的文件头解析替身（`runtime/sharp-shim.js`，拿 PIL 生成的真图片
-单测，含无损 WebP 和带 EXIF 的 JPEG 两条特殊分支）。插件照常提供 `attachments` 服务，
-体积没了。
+sharp 能换，是因为这个包里唯一的模型通道明确拒绝图片，字节根本到不了模型；代价是准入校验
+从完整解码退化成文件头校验。ripgrep 留下，是因为代码搜索值这个体积 —— wasm 版产出逐字节
+相同的 `--json` 记录、相同的 `.gitignore` 语义，留住搜索总共只花 0.9 MB。代价是慢 3–9 倍，
+且比值最差的地方绝对值最小：常见仓库搜索 74ms，原生 8.5ms。
 
-**诚实的降级**：准入期的「完整解码」校验退化成文件头校验，截断的图片会通过。
-这些字节只进本地存储、永远不再解码、永远送不到模型，代价可接受。要真解码校验就把
-`PACKAGE_CUTS.imageDecoding` 关掉。
-
-**真砍不掉的**：session-query-sqlite（同样是 `static inject`）、koffi（2 MB，
-macOS 上永远调不到，但 `dsh-sandbox-windows-acl` 在模块顶层做 fail-closed 的
-Win32 ABI 布局自检，换桩要抄上游魔数 —— 不值）。
+每一刀和每一次替换为什么安全、不安全时会怎么炸，都写在做决定的地方：
+`scripts/trim.ts` 和两个 shim。
 
 ## 运行时：Bun + 三个构建期补丁
 
@@ -86,17 +80,12 @@ Win32 ABI 布局自检，换桩要抄上游魔数 —— 不值）。
 
 | 缺什么 | 后果 | 补法 |
 |---|---|---|
-| `node:module` 没有 `stripTypeScriptTypes` | 插件树起不来 | amaro 的 `strip-only`（Node 内建实现就是它），**按字节保长** |
-| `runProfile` 无条件建 HMR，要 Node 内部模块 | 监听之后才崩，最难查 | 改成「组合里本来就有 HMR 才 watch」 |
-| **node-pty 读不到数据** | bash 工具静默返回空 | 用 Bun 原生 PTY（`Bun.spawn({ terminal })`）做适配层 |
+| `node:module` 没有 `stripTypeScriptTypes` | 插件树起不来 | amaro 的 `strip-only`，按字节保长 |
+| `runProfile` 无条件建 HMR，要 Node 内部模块 | 服务已在监听之后才崩 | 组合里本来就有 HMR 才 watch |
+| **node-pty 读不到数据** | bash 工具静默返回空 | Bun 原生 PTY 适配层，`scripts/pty-shim.ts` |
 
-第三条是关键。node-pty 在 Bun 下**能 fork、能拿退出码，就是 `onData` 零回调** ——
-命令确实跑了，用户什么也看不到。dsh 只用到 node-pty 的 5 个成员
-（`spawn` / `pid` / `onData` / `onExit` / `write` / `kill`，没有 `resize`），
-适配面很小，见 `scripts/pty-shim.ts`。
-
-三个补丁在 Node 上都是无害的（适配层会原样转发给真的 node-pty），
-所以同一份 backend 产物两个运行时通用 —— 换运行时只换 `src-tauri/binaries/` 那一个二进制：
+三个补丁在 Node 上都无害，所以同一份 backend 产物两个运行时通用 ——
+换运行时只换 `src-tauri/binaries/` 那一个二进制：
 
 ```bash
 DSH_RUNTIME=node npm run stage:runtime
@@ -112,6 +101,7 @@ scripts/
   prune.ts          文件级裁剪规则
   preset-patch.ts   改 agent preset 组合（shipped root 用户层盖不住）
   bun-shim.ts       Bun 兼容补丁
+  ripgrep-shim.ts   把原生 ripgrep 二进制换成 wasm 版
   build-backend.ts  以上全部的 IO 层
   stage-runtime.ts  strip + 临时签名，放进 sidecar 目录
   make-icon.ts      官方 favicon + 官方品牌蓝 → App 图标
@@ -132,6 +122,5 @@ npm run check   # typecheck + format + JS 单测 + clippy + Rust 单测
 ## 已知限制
 
 - 仅 macOS arm64。单平台是所有裁剪的前提。
-- 代码搜索（grep / glob）默认关闭，见上表。
 - 热重载 `cordis.patch.yml` 被关掉了（改配置需重启应用）。
 - 上游 dsh 目前是 `0.1.0-rc.6`，本身处于 internal testing 阶段。

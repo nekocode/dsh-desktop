@@ -1,5 +1,23 @@
 import type { ImportRewrite } from './import-rewrite.ts';
+
+/**
+ * A whole-file swap of a third-party package entry, applied by `replaceEntry` in `build-backend.ts`,
+ * which is also where the contract check is explained.
+ */
+export type EntryReplacement = {
+  /** Relative to node_modules. */
+  readonly target: string;
+  /** Relative to the repository root. */
+  readonly source: string;
+  /** Packages the replacement imports that nothing can trace to; copied whole from our own tree. */
+  readonly needs: readonly string[];
+  /** Must still appear in the file being replaced. */
+  readonly expects: string;
+  /** What breaks if it stops appearing. */
+  readonly consequence: string;
+};
 import { SHARP_REWRITE } from './sharp-shim.ts';
+import { NATIVE_RIPGREP_PACKAGE, RIPGREP_REPLACEMENT } from './ripgrep-shim.ts';
 
 /**
  * The trim manifest: which plugin rows the desktop build removes from dsh's official web profile.
@@ -57,8 +75,9 @@ export const CUTS = {
     // Upstream already disables the host row (presets own it); listing it here keeps the switch working if upstream ever moves it back to the host plane.
     hostRows: ['tool-fs-search'],
     presetRows: ['tool-fs-search'],
-    reason: '@vscode/ripgrep is a prebuilt binary; the cost is losing the grep/glob tools',
-    savedMiB: 5.5,
+    reason:
+      'the whole search stack; superseded by PACKAGE_CUTS.nativeRipgrep, which keeps the tools and drops 83% of their weight',
+    savedMiB: 4.5,
   },
   sessionSearch: {
     hostRows: ['session-query-sqlite'],
@@ -83,7 +102,12 @@ export type CutSwitches = Record<CutName, boolean>;
 /**
  * The switch combination the desktop build actually ships.
  *
- * Three are off, all because of hard dependencies found by actually running the build:
+ * `fileSearch` is off for a different reason than the rest: nothing forces it: code search is the
+ * one capability worth its weight, and `PACKAGE_CUTS.nativeRipgrep` already removes 83% of that
+ * weight by swapping the native ripgrep binary for the wasm build of the same tool. Cutting the
+ * rows too would trade a real agent capability for the 0.2 MiB that remains.
+ *
+ * The other three are off because of hard dependencies found by actually running the build:
  *
  * - `images` / `sessionSearch`: `dsh-host-apiproxy` writes `attachments` and `sessionQuery` into
  *   its `static inject`, so cutting them keeps the whole API gateway from starting
@@ -98,7 +122,7 @@ export const AGGRESSIVE: CutSwitches = {
   images: false,
   telemetry: true,
   foreignProviders: true,
-  fileSearch: true,
+  fileSearch: false,
   sessionSearch: false,
   workflow: false,
 };
@@ -159,6 +183,31 @@ export function assertCutPlanesComplete(
   }
 }
 
+/**
+ * Keeping the search tools obliges someone to supply a ripgrep binary.
+ *
+ * Found by measurement, not by reading: with `fileSearch` off and `nativeRipgrep` off, the artifact
+ * grows by 0.1 MiB rather than the binary's 4.3 MiB, because `@vscode/ripgrep` resolves its
+ * platform package by a name it computes at runtime (`@vscode/ripgrep-${platform}-${arch}`) and nft
+ * cannot trace that — the same blind spot as the node-pty prebuilds. The build stays green, the UI
+ * is fine, and every search fails with "Could not find @vscode/ripgrep-darwin-arm64".
+ *
+ * So the combination is illegal: either cut the rows, or let the wasm swap provide the binary. A
+ * native build would additionally need its platform package listed in `prune.ts`'s `nativeExtras`.
+ */
+export function assertSearchHasBinary(
+  cuts: readonly CutName[],
+  packageCuts: readonly PackageCutName[],
+): void {
+  if (cuts.includes('fileSearch') || packageCuts.includes('nativeRipgrep')) return;
+  throw new Error(
+    'the grep/glob rows are kept but nothing supplies a ripgrep binary: nft cannot trace ' +
+      "@vscode/ripgrep's computed platform package, so the artifact would ship the wrapper alone " +
+      'and every search would fail at runtime. Turn PACKAGE_CUTS.nativeRipgrep back on, or cut ' +
+      'CUTS.fileSearch, or add the platform package to nativeExtras in prune.ts.',
+  );
+}
+
 /** Cut row ids (both planes merged), used to drop the corresponding packages from the backend. */
 export function cutRowIds(names: readonly CutName[]): Set<string> {
   return new Set(names.flatMap((name) => [...CUTS[name].hostRows, ...CUTS[name].presetRows]));
@@ -180,6 +229,11 @@ export type PackageCut = {
    * driver — a second cut needing one must not mean a second `if` over cut names.
    */
   readonly replaceImports?: readonly ImportRewrite[];
+  /**
+   * A package entry file replaced wholesale. Blunter than an import rewrite and reserved for
+   * third-party packages whose entire job is to resolve something we resolve differently.
+   */
+  readonly replaceEntry?: EntryReplacement;
   readonly reason: string;
   readonly savedMiB: number;
 };
@@ -204,12 +258,40 @@ export const PACKAGE_CUTS = {
       'check degrades to a header check',
     savedMiB: 18,
   },
+  nativeRipgrep: {
+    packages: [NATIVE_RIPGREP_PACKAGE],
+    replaceEntry: RIPGREP_REPLACEMENT,
+    /*
+     * Measured, interleaved medians on an 8-performance-core M-series, and the single home for
+     * these numbers — the shims point here rather than restating them.
+     *
+     *   repo root, ignore rules on   8.5 ms -> 74 ms   (8.7x)
+     *   39 MB tree, --no-ignore       29 ms -> 144 ms  (5.0x)
+     *   346 MB tree, --no-ignore     543 ms -> 1593 ms (2.9x)
+     *
+     * The ratio is worst where the absolute cost is trivial: a typical search is bounded by a
+     * ~40 ms fixed wasm start, so 74 ms is imperceptible. On big trees the multiplier comes from
+     * two places — wasm executes ~1.8x slower than single-threaded native, and WASI preview1 has no
+     * threads at all, so native additionally wins ~1.5x from 8 cores. The gap therefore widens on
+     * wider machines rather than narrowing.
+     *
+     * The one real risk: upstream's SEARCH_TIMEOUT_MS is 30 s, so a repo-wide grep that took over
+     * roughly 10 s natively can now time out. Nothing in this bundle approaches that, but a much
+     * larger workspace could.
+     */
+    reason:
+      'the per-platform ripgrep binary is 4.3 MiB of Mach-O against 768 KiB for the wasm build of ' +
+      'the same ripgrep, which emits byte-identical --json records with the same .gitignore ' +
+      'semantics. Cost: 3-9x the wall clock, worst where the absolute is smallest (74 ms)',
+    savedMiB: 3.6,
+  },
 } as const satisfies Record<string, PackageCut>;
 
 export type PackageCutName = keyof typeof PACKAGE_CUTS;
 
 export const AGGRESSIVE_PACKAGES: Record<PackageCutName, boolean> = {
   imageDecoding: true,
+  nativeRipgrep: true,
 };
 
 export function resolvePackageCuts(switches: Record<PackageCutName, boolean>): PackageCutName[] {
@@ -221,7 +303,22 @@ export function droppedPackagePrefixes(names: readonly PackageCutName[]): string
   return [...new Set(names.flatMap((name) => PACKAGE_CUTS[name].packages))];
 }
 
+/** `as const satisfies` narrows each entry, so widen before reading the optional fields. */
+function cutsOf(names: readonly PackageCutName[]): PackageCut[] {
+  return names.map((name) => PACKAGE_CUTS[name]);
+}
+
 /** The import rewrites required by the resolved package cuts, in table order. */
 export function importRewritesFor(names: readonly PackageCutName[]): ImportRewrite[] {
-  return names.flatMap((name) => PACKAGE_CUTS[name].replaceImports ?? []);
+  return cutsOf(names).flatMap((cut) => cut.replaceImports ?? []);
+}
+
+/** The entry replacements required by the resolved package cuts, in table order. */
+export function entryReplacementsFor(names: readonly PackageCutName[]): EntryReplacement[] {
+  return cutsOf(names).flatMap((cut) => cut.replaceEntry ?? []);
+}
+
+/** Packages the resolved cuts' replacements import, deduplicated. */
+export function replacementPackages(names: readonly PackageCutName[]): string[] {
+  return [...new Set(entryReplacementsFor(names).flatMap((replacement) => replacement.needs))];
 }

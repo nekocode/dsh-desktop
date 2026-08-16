@@ -42,9 +42,13 @@ import {
   AGGRESSIVE,
   AGGRESSIVE_PACKAGES,
   assertCutPlanesComplete,
+  assertSearchHasBinary,
   cutRowIds,
   droppedPackagePrefixes,
+  entryReplacementsFor,
+  type EntryReplacement,
   importRewritesFor,
+  replacementPackages,
   presetRowsToDisable,
   renderPatch,
   resolveCuts,
@@ -242,6 +246,7 @@ export async function buildBackend(options: BuildOptions): Promise<void> {
   // Cutting a row id means cutting it on every plane it appears on; missing one shows up as
   // "UI fine, session creation fails", which a single launch check cannot catch.
   assertCutPlanesComplete(cuts, new Set(presetPlane.map((row) => row.id)));
+  assertSearchHasBinary(cuts, packageCuts);
 
   const scopePackages = installedScopePackages(options.upstreamDir);
   const plan = planBackend({
@@ -305,12 +310,16 @@ export async function buildBackend(options: BuildOptions): Promise<void> {
 
   assertNativeModulesKept(nodeModules, keep, plan.cutPackages, rules, isDropped);
   copyFiles(nodeModules, outNodeModules, keep);
+  copyOwnPackages(root(), outNodeModules, replacementPackages(packageCuts), rules);
   markExecutable(outNodeModules, executableExtras(rules));
 
   patchPresets(outNodeModules, presetRowsToDisable(cuts));
   // Bun compatibility is unconditional; the rest is whatever the resolved package cuts require.
   for (const rule of [STRIP_REWRITE, PTY_REWRITE, ...importRewritesFor(packageCuts)]) {
     installRewrite(root(), outNodeModules, rule);
+  }
+  for (const replacement of entryReplacementsFor(packageCuts)) {
+    replaceEntry(root(), outNodeModules, replacement);
   }
   patchProfileBoot(outNodeModules);
   writeProfileSeed(join(options.outDir, 'profile'), renderPatch(cuts));
@@ -371,6 +380,76 @@ function installRewrite(repoRoot: string, outNodeModules: string, rule: ImportRe
   }
   writeFileSync(target, rewriteImport(readFileSync(target, 'utf8'), rule));
   log('shim', `${rule.target} → ${rule.shimFilename}`);
+}
+
+/**
+ * Copies packages this repo depends on directly into the artifact.
+ *
+ * Replacements come from our own node_modules rather than the upstream staging directory: that
+ * directory is reinstalled whenever dsh is upgraded, so a dependency added there would vanish
+ * silently. Ours is pinned in this repo's package.json, where an upstream bump cannot touch it.
+ */
+function copyOwnPackages(
+  repoRoot: string,
+  outNodeModules: string,
+  packages: readonly string[],
+  rules: PruneRules,
+): void {
+  const repoModules = join(repoRoot, 'node_modules');
+  for (const name of packages) {
+    const dir = join(repoModules, name);
+    const files = listFiles(dir, repoModules).filter((rel) => shouldKeep(rel, rules));
+    if (files.length === 0) throw new Error(`replacement package is missing: ${name}`);
+
+    // Only the package itself is copied, so it has to be self-contained. Today's version is; a
+    // later one that grows a dependency would otherwise ship an artifact that fails on first use.
+    const manifest = JSON.parse(readFileSync(join(dir, 'package.json'), 'utf8')) as {
+      dependencies?: Record<string, string>;
+    };
+    const deps = Object.keys(manifest.dependencies ?? {});
+    if (deps.length > 0) {
+      throw new Error(
+        `${name} gained dependencies (${deps.join(', ')}) and is no longer self-contained; ` +
+          'copying it alone would ship a package that fails to resolve them at runtime.',
+      );
+    }
+
+    copyFiles(repoModules, outNodeModules, files);
+    log('own package', `${name}: ${files.length} files`);
+  }
+}
+
+/**
+ * Replaces a third-party package's entry file wholesale.
+ *
+ * Blunter than an import rewrite and, unlike one, it cannot fail loudly on its own — overwriting a
+ * file always "works". So the contract the replacement relies on is asserted against the original
+ * first, and the build stops rather than shipping a package that resolves nothing.
+ */
+function replaceEntry(
+  repoRoot: string,
+  outNodeModules: string,
+  replacement: EntryReplacement,
+): void {
+  const target = join(outNodeModules, replacement.target);
+  if (!existsSync(target)) {
+    // The package is only in the artifact because something upstream imports it. Its absence means
+    // upstream stopped, so the swap is now pointless — and the cut that drops the native package
+    // it replaced is pointless too.
+    throw new Error(
+      `${replacement.target} is not in the artifact, so nothing upstream imports it any more; ` +
+        `drop the cut that replaces it rather than swapping a package nobody loads.`,
+    );
+  }
+  if (!readFileSync(target, 'utf8').includes(replacement.expects)) {
+    throw new Error(
+      `${replacement.target} no longer mentions ${replacement.expects} — the package changed its ` +
+        `contract, so ${replacement.source} must follow rather than silently overwrite it: ` +
+        replacement.consequence,
+    );
+  }
+  cpSync(join(repoRoot, replacement.source), target);
+  log('entry swap', `${replacement.target} → ${replacement.source}`);
 }
 
 /**
