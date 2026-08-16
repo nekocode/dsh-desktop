@@ -11,16 +11,21 @@ A Tauri 2 shell (system WKWebView, no bundled Chromium) + a trimmed dsh backend 
 |---|---|
 | `npm i @deepseek-ai/dsh` as-is | 347 MB |
 | Trimmed backend | 31 MB |
-| Installed `.app` | 96 MB |
-| DMG | 35 MB |
+| Installed `.app` | 98 MB |
+| DMG | 36 MB |
 
 For comparison: an Electron build would be roughly 340 MB / 100–120 MB.
 
 ## Download
 
-[`DeepSeek-Harness-arm64.dmg`](https://dsh-desktop.xiu.ai/dl/latest/DeepSeek-Harness-arm64.dmg) —
+[**dsh-desktop.xiu.ai**](https://dsh-desktop.xiu.ai/) —
+[`DeepSeek-Harness-arm64.dmg`](https://dsh-desktop.xiu.ai/dl/latest/DeepSeek-Harness-arm64.dmg),
 macOS 11+, Apple Silicon, signed and notarized. Individual versions are on the
 [Releases](https://github.com/nekocode/dsh-desktop/releases) page.
+
+The site is built from `web-src/` by `npm run build:web` and served as the download Worker's
+static assets — one hostname, because that hostname is already a Worker custom domain and
+nothing else can claim it.
 
 ## Updating
 

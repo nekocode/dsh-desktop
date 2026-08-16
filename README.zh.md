@@ -11,16 +11,20 @@ Tauri 2 壳（系统 WKWebView，不打包 Chromium）+ 裁剪过的 dsh 后端 
 |---|---|
 | `npm i @deepseek-ai/dsh` 原样 | 347 MB |
 | 裁剪后的 backend | 31 MB |
-| 安装后 `.app` | 96 MB |
-| DMG | 35 MB |
+| 安装后 `.app` | 98 MB |
+| DMG | 36 MB |
 
 对照：Electron 方案约 340 MB / 100–120 MB。
 
 ## 下载
 
-[`DeepSeek-Harness-arm64.dmg`](https://dsh-desktop.xiu.ai/dl/latest/DeepSeek-Harness-arm64.dmg)
-—— macOS 11+，Apple Silicon，已签名并公证。历史版本在
+[**dsh-desktop.xiu.ai**](https://dsh-desktop.xiu.ai/) ——
+[`DeepSeek-Harness-arm64.dmg`](https://dsh-desktop.xiu.ai/dl/latest/DeepSeek-Harness-arm64.dmg)，
+macOS 11+，Apple Silicon，已签名并公证。历史版本在
 [Releases](https://github.com/nekocode/dsh-desktop/releases) 页。
+
+站点由 `npm run build:web` 从 `web-src/` 生成，作为下载 Worker 的静态资源分发 —— 只有一个域名，
+因为这个域名已经被那个 Worker 以 custom domain 独占，别的东西抢不走。
 
 ## 自动更新
 
