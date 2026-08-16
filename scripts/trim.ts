@@ -239,13 +239,18 @@ export type PackageCut = {
 };
 
 /*
- * Considered and rejected: koffi + @koromix (2 MiB).
+ * Considered, attempted, and rejected: koffi + @koromix (2.1 MiB).
  *
- * It only serves advapi32/kernel32/user32.dll and is unreachable on macOS, so it looks like 2 MiB
- * for free. But `dsh-sandbox-windows-acl` runs a Win32 struct layout self-check at **module top
- * level** (`STARTUPINFOW.size !== 104` throws immediately), so stubbing it means copying upstream's
- * two magic numbers in — which both defeats a fail-closed ABI guard and leaves a pair of constants
- * that must drift along with upstream's C++ probe. 2 MiB is not worth that price.
+ * It only serves advapi32/kernel32/user32.dll, is unreachable on macOS, and every call site imports
+ * it lazily from inside a Win32-only branch — so a stub looks free. It is not: a stub was built and
+ * run, and `dsh-sandbox-windows-acl` asserts its Win32 struct layout at module top level, before
+ * any branch runs —
+ *
+ *     if (STARTUPINFOW.size !== 104) throw new Error("STARTUPINFOW layout mismatch: ...")
+ *
+ * A stub has no `.size`, so `dsh-sandbox-local` fails to import and the backend never starts.
+ * Passing the check means hardcoding 104, which defeats a fail-closed ABI guard and leaves a
+ * constant that must drift with upstream's C++ probe. 2.1 MiB is not worth that price.
  */
 export const PACKAGE_CUTS = {
   imageDecoding: {

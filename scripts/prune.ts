@@ -86,6 +86,17 @@ const LICENSE = /^(LICENSE|LICENCE|COPYING|NOTICE)/i;
 const ROOT_DOC =
   /^(@[^/]+\/)?[^/]+\/(README|CHANGELOG|HISTORY|CONTRIBUTING|SECURITY|CODE_OF_CONDUCT)[^/]*\.md$/i;
 
+/**
+ * katex publishes a CJS twin of its ESM entry. Everything here imports it as ESM and the artifact
+ * contains no `require("katex")` at all, so the 0.6 MiB CJS copy is dead weight.
+ *
+ * Its react-dom equivalent was considered and dropped: react-dom picks its bundle from `NODE_ENV`,
+ * and pinning that for the sidecar would leak into every shell the bash tool spawns (upstream's
+ * `scrubbedParentEnv` forwards everything but secrets and `DSH_*`), silently changing what a user's
+ * `npm install` does inside the agent's terminal. 1 MiB is not worth that.
+ */
+const KATEX_CJS_TWIN = /^katex\/dist\/katex\.js$/;
+
 /** node-pty ships 1.2 MiB of deps + 2.4 MiB of third_party purely to build from source; with a prebuild present they are unnecessary. */
 const NODE_PTY_BUILD_ONLY = /^node-pty\/(deps|third_party|scripts|typings|src)\//;
 
@@ -108,6 +119,7 @@ export function shouldKeep(relativePath: string, rules: PruneRules): boolean {
 
   if (NODE_PTY_BUILD_ONLY.test(relativePath)) return false;
   if (rules.dropMathFonts && isMathFont(segments, basename)) return false;
+  if (KATEX_CJS_TWIN.test(relativePath)) return false;
 
   return true;
 }

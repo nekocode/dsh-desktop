@@ -9,8 +9,8 @@ Tauri 2 壳（系统 WKWebView，不打包 Chromium）+ 裁剪过的 dsh 后端 
 
 | | 体积 |
 |---|---|
-| `npm i @deepseek-ai/dsh` 原样 | 344 MB |
-| 裁剪后的 backend | 40 MB |
+| `npm i @deepseek-ai/dsh` 原样 | 347 MB |
+| 裁剪后的 backend | 39 MB |
 | 安装后 `.app` | 102 MB |
 | DMG | 37 MB |
 
@@ -57,7 +57,8 @@ APPLE_TEAM_ID=<你的 team> ./scripts/dist.sh
 | `telemetry` | OpenTelemetry 导出 | 34 MB | 无（上游默认就是 DISABLED） |
 | `workflow` | 多智能体 workflow 编排 | 0.5 MB | 首版不做 |
 
-还剪掉了：59 个 KaTeX 字体、全部 sourcemap 和 `.d.ts`、三个非本机平台的 node-pty prebuild。
+还剪掉了：59 个 KaTeX 字体、全部 sourcemap 和 `.d.ts`、三个非本机平台的 node-pty prebuild，
+以及产物内无人 require 的 katex CJS 双胞胎。
 
 另有两个依赖是**换掉**而不是砍掉 —— 拉进它们的插件删不得：
 

@@ -114,3 +114,12 @@ test('.node native modules are always kept, even under directories like src', ()
 test('executableExtras names spawn-helper — without the +x bit the pty fails with a completely unrelated error', () => {
   assert.deepEqual(executableExtras(RULES), ['node-pty/prebuilds/darwin-arm64/spawn-helper']);
 });
+
+test("drops katex's CJS twin — the artifact has no require('katex') at all", () => {
+  assert.ok(!keep('katex/dist/katex.js'));
+});
+
+test('keeps the ESM entry beside it, and packages merely named like it', () => {
+  assert.ok(keep('katex/dist/katex.mjs'));
+  assert.ok(keep('katex-extra/dist/katex.js'));
+});

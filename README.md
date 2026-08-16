@@ -9,8 +9,8 @@ A Tauri 2 shell (system WKWebView, no bundled Chromium) + a trimmed dsh backend 
 
 | | Size |
 |---|---|
-| `npm i @deepseek-ai/dsh` as-is | 344 MB |
-| Trimmed backend | 40 MB |
+| `npm i @deepseek-ai/dsh` as-is | 347 MB |
+| Trimmed backend | 39 MB |
 | Installed `.app` | 102 MB |
 | DMG | 37 MB |
 
@@ -58,8 +58,8 @@ Flip the `AGGRESSIVE` switches in `scripts/trim.ts`; every item can be reverted 
 | `telemetry` | OpenTelemetry export | 34 MB | none (upstream defaults to DISABLED) |
 | `workflow` | multi-agent workflow orchestration | 0.5 MB | out of scope for the first release |
 
-Also cut: 59 KaTeX fonts, all sourcemaps and `.d.ts` files, and the node-pty prebuilds for three
-non-host platforms.
+Also cut: 59 KaTeX fonts, all sourcemaps and `.d.ts` files, the node-pty prebuilds for three
+non-host platforms, and katex's CJS twin, which nothing in the artifact requires.
 
 Two dependencies are swapped rather than cut, because the plugins that pull them in cannot be removed:
 
