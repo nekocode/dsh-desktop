@@ -10,9 +10,9 @@ A Tauri 2 shell (system WKWebView, no bundled Chromium) + a trimmed dsh backend 
 | | Size |
 |---|---|
 | `npm i @deepseek-ai/dsh` as-is | 347 MB |
-| Trimmed backend | 34 MB |
-| Installed `.app` | 102 MB |
-| DMG | 37 MB |
+| Trimmed backend | 31 MB |
+| Installed `.app` | 96 MB |
+| DMG | 35 MB |
 
 For comparison: an Electron build would be roughly 340 MB / 100–120 MB.
 
@@ -26,7 +26,7 @@ For comparison: an Electron build would be roughly 340 MB / 100–120 MB.
 npm install
 npm run icon           # generate icons from the upstream favicon + official brand blue
 npm run app:dev        # development
-npm run app:build      # produce an unsigned .app
+npm run app:build      # build the backend, smoke it, produce an unsigned .app
 npm run check          # typecheck + format + JS unit tests + clippy + Rust unit tests
 ```
 
@@ -58,12 +58,12 @@ Flip the `AGGRESSIVE` switches in `scripts/trim.ts`; every item can be reverted 
 | `telemetry` | OpenTelemetry export | 34 MB | none (upstream defaults to DISABLED) |
 | `workflow` | multi-agent workflow orchestration | 0.5 MB | out of scope for the first release |
 
-Also cut: 59 KaTeX fonts, all sourcemaps and `.d.ts` files, the node-pty prebuilds for three
-non-host platforms, and 5.5 MB of browser-only libraries — React, shiki and katex reach the
-artifact only because nft traces `@deepseek-ai` packages that no composition row loads, while the
-browser gets them from the prebuilt frontend bundle.
+Also cut: 59 KaTeX fonts, every sourcemap, the `.d.ts` files outside the few packages copied whole,
+the node-pty prebuilds for three non-host platforms, and 5.5 MB of browser-only libraries — React,
+shiki and katex reach the artifact only because nft traces `@deepseek-ai` packages that no
+composition row loads, while the browser gets them from the prebuilt frontend bundle.
 
-Two dependencies are swapped rather than cut, because the plugins that pull them in cannot be removed:
+Two dependencies are swapped rather than cut — one because its plugin cannot be removed, one because the tool is worth keeping:
 
 | Swap | From | To |
 |---|---|---|
@@ -105,8 +105,8 @@ scripts/
   backend-plan.ts   computes the nft entry set and the packages to exclude
   prune.ts          file-level pruning rules
   preset-patch.ts   patches the agent preset composition (a shipped root the user layer cannot override)
-  bun-shim.ts       Bun compatibility patches
-  ripgrep-shim.ts   swaps the native ripgrep binary for the wasm build
+  import-rewrite.ts one mechanism for pointing an upstream import at a shim
+  *-shim.ts         the shims: Bun compatibility, node-pty, sharp, ripgrep
   build-backend.ts  the IO layer for all of the above
   stage-runtime.ts  strip + ad-hoc signing, staged into the sidecar directory
   make-icon.ts      official favicon + official brand blue → app icon
@@ -127,7 +127,7 @@ npm run smoke   # boot the built backend, create a session, serve a client bundl
 ```
 
 `smoke` is the one that matters after changing a cut: a broken cut can still launch and serve a
-complete UI, and only fail when a session is created.
+complete UI, and only fail when a session is created. `app:build` and `app:dev` run it for you.
 
 ## Known limitations
 

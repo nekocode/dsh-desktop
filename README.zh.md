@@ -10,9 +10,9 @@ Tauri 2 壳（系统 WKWebView，不打包 Chromium）+ 裁剪过的 dsh 后端 
 | | 体积 |
 |---|---|
 | `npm i @deepseek-ai/dsh` 原样 | 347 MB |
-| 裁剪后的 backend | 34 MB |
-| 安装后 `.app` | 102 MB |
-| DMG | 37 MB |
+| 裁剪后的 backend | 31 MB |
+| 安装后 `.app` | 96 MB |
+| DMG | 35 MB |
 
 对照：Electron 方案约 340 MB / 100–120 MB。
 
@@ -26,7 +26,7 @@ Tauri 2 壳（系统 WKWebView，不打包 Chromium）+ 裁剪过的 dsh 后端 
 npm install
 npm run icon           # 从上游 favicon + 官方品牌蓝生成图标
 npm run app:dev        # 开发
-npm run app:build      # 出未签名的 .app
+npm run app:build      # 构建 backend、smoke 验证、出未签名的 .app
 npm run check          # typecheck + format + JS 单测 + clippy + Rust 单测
 ```
 
@@ -57,11 +57,11 @@ APPLE_TEAM_ID=<你的 team> ./scripts/dist.sh
 | `telemetry` | OpenTelemetry 导出 | 34 MB | 无（上游默认就是 DISABLED） |
 | `workflow` | 多智能体 workflow 编排 | 0.5 MB | 首版不做 |
 
-还剪掉了：59 个 KaTeX 字体、全部 sourcemap 和 `.d.ts`、三个非本机平台的 node-pty prebuild，
-以及 5.5 MB 纯浏览器库 —— React、shiki、katex 进产物只是因为 nft 追踪了没有任何组合行加载的
-`@deepseek-ai` 包，而浏览器是从预构建前端 bundle 拿它们的。
+还剪掉了：59 个 KaTeX 字体、全部 sourcemap、整包复制的少数几个包之外的 `.d.ts`、
+三个非本机平台的 node-pty prebuild，以及 5.5 MB 纯浏览器库 —— React、shiki、katex 进产物，
+只是因为 nft 追踪了没有任何组合行加载的 `@deepseek-ai` 包，而浏览器是从预构建前端 bundle 拿的。
 
-另有两个依赖是**换掉**而不是砍掉 —— 拉进它们的插件删不得：
+另有两个依赖是**换掉**而不是砍掉 —— 一个是插件删不得，一个是工具值得留：
 
 | 换 | 从 | 到 |
 |---|---|---|
@@ -102,8 +102,8 @@ scripts/
   backend-plan.ts   算出 nft 入口集和要剔除的包
   prune.ts          文件级裁剪规则
   preset-patch.ts   改 agent preset 组合（shipped root 用户层盖不住）
-  bun-shim.ts       Bun 兼容补丁
-  ripgrep-shim.ts   把原生 ripgrep 二进制换成 wasm 版
+  import-rewrite.ts 把上游 import 指向 shim 的统一机制
+  *-shim.ts         各个 shim：Bun 兼容、node-pty、sharp、ripgrep
   build-backend.ts  以上全部的 IO 层
   stage-runtime.ts  strip + 临时签名，放进 sidecar 目录
   make-icon.ts      官方 favicon + 官方品牌蓝 → App 图标
@@ -124,6 +124,7 @@ npm run smoke   # 启动产物、建会话、取客户端 bundle
 ```
 
 改过裁剪之后真正要跑的是 `smoke`：坏掉的裁剪照样能启动、照样服务完整界面，只在建会话时才失败。
+`app:build` 和 `app:dev` 会自动跑它。
 
 ## 已知限制
 
