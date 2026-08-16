@@ -1,0 +1,15 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "update-window",
+  "description": "Everything the update window needs, and nothing the main window can reach.",
+  "comment": [
+    "Scoped to the update window by label on purpose. `withGlobalTauri` injects the API object into",
+    "every window, including the main one — which renders dsh's own web UI, code this project does",
+    "not own. Granting nothing there leaves that object inert: the ACL refuses the call regardless",
+    "of who makes it.",
+    "Only events are granted. Commands defined by this app are not ACL-gated, and the window asks",
+    "for its version through core:app."
+  ],
+  "windows": ["update"],
+  "permissions": ["core:event:default", "core:app:default"]
+}

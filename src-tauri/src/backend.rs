@@ -29,8 +29,9 @@ const TAIL_LINES: usize = 40;
 /// Upper bound from spawn to announced address. A cold start measures ~0.6s; 60s leaves room for slow machines and antivirus.
 const STARTUP_TIMEOUT: Duration = Duration::from_secs(60);
 
-/// Window label, used by both navigation and error reporting.
-const MAIN_WINDOW: &str = "main";
+/// Window label, used by navigation, error reporting, and by `lib.rs` to tell this window apart
+/// from the update window — closing that one must not take the app down with it.
+pub const MAIN_WINDOW: &str = "main";
 
 /// Navigates the webview from the loading page to the backend address once ready.
 ///

@@ -1,0 +1,276 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Software Update</title>
+    <style>
+      /*
+        The update window. Same rules as the loading page: no external resources, no build step —
+        it ships as the file you are reading.
+
+        Unlike the loading page this one does talk to Tauri, which is affordable here: if it breaks,
+        the app still runs and the user is merely not told about a new version.
+      */
+      :root {
+        color-scheme: light dark;
+        --bg: #ffffff;
+        --fg: #1a1a1a;
+        --muted: #8a8a8a;
+        --line: #e5e5e5;
+        --field: #f5f5f5;
+        --accent: #4d6bfe;
+        --accent-fg: #ffffff;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bg: #1a1a1a;
+          --fg: #ededed;
+          --line: #2f2f2f;
+          --field: #242424;
+        }
+      }
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      body {
+        height: 100vh;
+        display: flex;
+        flex-direction: column;
+        padding: 22px 24px 18px;
+        gap: 12px;
+        background: var(--bg);
+        color: var(--fg);
+        font:
+          13px/1.5 -apple-system,
+          BlinkMacSystemFont,
+          'Segoe UI',
+          'Helvetica Neue',
+          sans-serif;
+        -webkit-user-select: none;
+        cursor: default;
+      }
+      h1 {
+        font-size: 14px;
+        font-weight: 600;
+      }
+      .subtitle {
+        color: var(--muted);
+      }
+      /* Takes the slack so the buttons stay pinned to the bottom in every state. */
+      .body {
+        flex: 1;
+        min-height: 0;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        gap: 10px;
+      }
+      #notes {
+        flex: 1;
+        min-height: 0;
+        overflow: auto;
+        padding: 10px 12px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: var(--field);
+        color: var(--muted);
+        white-space: pre-wrap;
+        -webkit-user-select: text;
+      }
+      #reason {
+        max-height: 40vh;
+        overflow: auto;
+        padding: 10px 12px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        font:
+          11px/1.5 ui-monospace,
+          SFMono-Regular,
+          Menlo,
+          monospace;
+        color: var(--muted);
+        white-space: pre-wrap;
+        -webkit-user-select: text;
+      }
+      .track {
+        height: 6px;
+        border-radius: 3px;
+        background: var(--field);
+        overflow: hidden;
+      }
+      .track > div {
+        height: 100%;
+        width: 0;
+        border-radius: 3px;
+        background: var(--accent);
+        transition: width 0.15s linear;
+      }
+      /* Length unknown until the server discloses one; keep the bar honest by sweeping instead. */
+      .track.indeterminate > div {
+        width: 35%;
+        animation: sweep 1.1s ease-in-out infinite;
+      }
+      @keyframes sweep {
+        from {
+          transform: translateX(-100%);
+        }
+        to {
+          transform: translateX(340%);
+        }
+      }
+      .spinner {
+        width: 20px;
+        height: 20px;
+        margin: 0 auto;
+        border: 2px solid var(--line);
+        border-top-color: var(--muted);
+        border-radius: 50%;
+        animation: spin 0.7s linear infinite;
+      }
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+      footer {
+        display: flex;
+        justify-content: flex-end;
+        gap: 8px;
+      }
+      button {
+        padding: 5px 14px;
+        border: 1px solid var(--line);
+        border-radius: 6px;
+        background: var(--field);
+        color: var(--fg);
+        font: inherit;
+        cursor: default;
+      }
+      button.primary {
+        border-color: transparent;
+        background: var(--accent);
+        color: var(--accent-fg);
+      }
+      button:active {
+        opacity: 0.7;
+      }
+      [hidden] {
+        display: none !important;
+      }
+    </style>
+  </head>
+  <body>
+    <h1 id="title">Checking for Updates…</h1>
+    <div class="subtitle" id="subtitle"></div>
+
+    <div class="body">
+      <div class="spinner" id="spinner" hidden></div>
+      <div id="notes" hidden></div>
+      <pre id="reason" hidden></pre>
+      <div class="track" id="track" hidden><div id="bar"></div></div>
+    </div>
+
+    <footer id="buttons"></footer>
+
+    <script>
+      const { invoke } = window.__TAURI__.core;
+      const el = (id) => document.getElementById(id);
+
+      /**
+       * Every button in the window. `phase` picks the row, so adding a state means adding one entry
+       * here and nowhere else — the alternative is a pile of show/hide flags nobody can audit.
+       * Order is left to right; the last one is the default action.
+       */
+      const BUTTONS = {
+        checking: [],
+        upToDate: [['OK', 'update_dismiss', true]],
+        available: [
+          ['Skip This Version', 'update_skip', false],
+          ['Later', 'update_dismiss', false],
+          ['Update', 'update_install', true],
+        ],
+        downloading: [],
+        installed: [
+          ['Later', 'update_dismiss', false],
+          ['Restart Now', 'update_restart', true],
+        ],
+        failed: [
+          ['Close', 'update_dismiss', false],
+          ['Try Again', 'update_check', true],
+        ],
+      };
+
+      const megabytes = (bytes) => (bytes / 1048576).toFixed(1) + ' MB';
+
+      // The version this build reports, and the last state drawn. Both are needed together: the
+      // version arrives asynchronously, so whichever lands second redraws with what the first left.
+      let current = '';
+      let latest = null;
+
+      window.__TAURI__.app.getVersion().then((version) => {
+        current = version;
+        if (latest) render(latest);
+      });
+
+      function render(state) {
+        latest = state;
+        const phase = state.phase;
+
+        for (const id of ['spinner', 'notes', 'reason', 'track']) el(id).hidden = true;
+
+        if (phase === 'checking') {
+          el('title').textContent = 'Checking for Updates…';
+          el('subtitle').textContent = '';
+          el('spinner').hidden = false;
+        } else if (phase === 'upToDate') {
+          el('title').textContent = "You're up to date";
+          el('subtitle').textContent = current
+            ? `DeepSeek Harness ${current} is the latest version.`
+            : 'This is the latest version.';
+        } else if (phase === 'available') {
+          el('title').textContent = `Version ${state.version} is available`;
+          el('subtitle').textContent = current ? `You have ${current}.` : '';
+          if (state.notes.trim()) {
+            el('notes').textContent = state.notes;
+            el('notes').hidden = false;
+          }
+        } else if (phase === 'downloading') {
+          el('title').textContent = `Downloading ${state.version}…`;
+          const { downloaded, total } = state;
+          el('subtitle').textContent = total
+            ? `${megabytes(downloaded)} of ${megabytes(total)}`
+            : megabytes(downloaded);
+          el('track').hidden = false;
+          el('track').classList.toggle('indeterminate', !total);
+          el('bar').style.width = total ? `${Math.min(100, (downloaded / total) * 100)}%` : '';
+        } else if (phase === 'installed') {
+          el('title').textContent = `Version ${state.version} is ready`;
+          el('subtitle').textContent = 'Restart to finish installing.';
+        } else if (phase === 'failed') {
+          el('title').textContent = 'Update failed';
+          el('subtitle').textContent = '';
+          el('reason').textContent = state.reason;
+          el('reason').hidden = false;
+        }
+
+        const buttons = el('buttons');
+        buttons.replaceChildren();
+        for (const [label, command, primary] of BUTTONS[phase] ?? []) {
+          const button = document.createElement('button');
+          button.textContent = label;
+          if (primary) button.className = 'primary';
+          button.onclick = () => invoke(command);
+          buttons.append(button);
+        }
+      }
+
+      window.__TAURI__.event.listen('update:state', (event) => render(event.payload));
+      // The window is created *after* the transition that caused it, so the event that opened it
+      // has already fired. Asking once on load is what fills the window instead of leaving it blank.
+      invoke('update_state').then(render);
+    </script>
+  </body>
+</html>

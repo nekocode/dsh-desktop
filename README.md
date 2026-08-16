@@ -18,7 +18,29 @@ For comparison: an Electron build would be roughly 340 MB / 100–120 MB.
 
 ## Download
 
-`DeepSeek-Harness-<version>-arm64.dmg` — macOS 11+, Apple Silicon, signed and notarized.
+[`DeepSeek-Harness-arm64.dmg`](https://dsh-desktop.xiu.ai/dl/latest/DeepSeek-Harness-arm64.dmg) —
+macOS 11+, Apple Silicon, signed and notarized. Individual versions are on the
+[Releases](https://github.com/nekocode/dsh-desktop/releases) page.
+
+## Updating
+
+The app updates itself. It asks once a day, five seconds after launch, and stays silent unless there
+is something to say; **Check for Updates…** in the application menu asks immediately and always
+answers. An offer can be taken, postponed, or skipped for that version.
+
+The update interface is a separate native window rather than anything drawn into the app. The main
+window renders dsh's own web UI, which this project owns no line of — injecting into it would couple
+the shell to upstream's markup and break the first time upstream changes it.
+
+Manifests are one file per platform:
+
+```
+https://dsh-desktop.xiu.ai/updates/{{target}}-{{arch}}.json
+```
+
+so a Windows or Linux release can be cut by a separate pipeline without read-modify-writing the
+manifest macOS clients depend on. Artifacts are served from R2 through a Worker whose routing is a
+whitelist (`scripts/dist-worker.ts`), not a bucket proxy.
 
 ## Running it
 
@@ -32,21 +54,36 @@ npm run check          # typecheck + format + JS unit tests + clippy + Rust unit
 
 The first launch seeds the profile into
 `~/Library/Application Support/com.nekocode.dsh-desktop/dsh-home/`;
-from then on that `cordis.patch.yml` is yours, and upgrades never overwrite it.
+from then on that `cordis.patch.yml` is yours, and upgrades never overwrite it. The rest of the
+profile belongs to the build — it declares which plugins ship — so an upgrade refreshes it.
 
 **Your `~/.dsh` is left alone** — our profile is trimmed, and putting it next to the full version installed by the CLI would make the two fight each other.
 
 ## Producing a release build
 
 ```bash
-APPLE_TEAM_ID=<your team> ./scripts/dist.sh
+./scripts/dist.sh            # build · sign · notarize · DMG · update artifact
+./scripts/dist.sh --release  # ...and publish it
+npm run deploy:dist          # redeploy the download Worker (rarely needed)
 ```
 
-Notarization credentials are read from `NOTARIZE_KEY_ID` / `NOTARIZE_ISSUER` / `NOTARIZE_KEY_PATH`.
-Sign without notarizing: `SKIP_NOTARIZE=true`.
+Credentials live in `scripts/.env.local`, which the script sources: `APPLE_TEAM_ID` plus
+`NOTARIZE_KEY_ID` / `NOTARIZE_ISSUER` / `NOTARIZE_KEY_PATH` for Apple, and
+`TAURI_SIGNING_PRIVATE_KEY_PATH` / `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` for the updater. Sign without notarizing: `SKIP_NOTARIZE=true`
+— which `--release` refuses to publish.
 
-The script signs every nested binary itself, because Tauri signs only the outer bundle; the reasoning
-is in `scripts/dist.sh`.
+Two things the script does that Tauri would otherwise do wrong, both for the same reason — Tauri
+produces its artifacts *before* signing:
+
+- it signs every nested binary itself, not just the outer bundle
+- it builds the DMG and the update tarball from the already signed, notarized and stapled `.app`,
+  with `createUpdaterArtifacts` deliberately left off
+
+The tarball is then unpacked again and re-verified, because what users install is the archive, not
+the directory it came from.
+
+The updater's public key is baked into `tauri.conf.json`. **Losing its private half means no
+installed copy can ever be updated again**, since a new key cannot be introduced to an old build.
 
 ## What got trimmed
 
@@ -110,13 +147,20 @@ scripts/
   build-backend.ts  the IO layer for all of the above
   stage-runtime.ts  strip + ad-hoc signing, staged into the sidecar directory
   make-icon.ts      official favicon + official brand blue → app icon
-  dist.sh           sign · notarize · staple · DMG
+  dist.sh           sign · notarize · staple · DMG · update artifact · publish
+  dist-paths.ts     the distribution topology: one table, read by the publisher and the Worker
+  dist-worker.ts    the Cloudflare Worker serving dsh-desktop.xiu.ai out of R2
+  manifest.ts       the update manifest, and the ways it can be silently wrong
+  publish.ts        upload · read back and compare · GitHub Release
   smoke.ts          boot the artifact and prove a session can be created
 src-tauri/src/
   lifecycle.rs      sidecar state machine (pure functions, hard-coded transition table)
   backend.rs        spawn / address discovery / reaping
-  home.rs           $DSH_HOME seeding
+  home.rs           $DSH_HOME seeding, and which of its files belong to the user
+  menu.rs           the application menu, whose one addition is Check for Updates…
+  update/           state machine · policy · preferences · orchestration
 ui/index.html       loading page (zero dependencies, navigated away once the backend is up)
+ui/update.html      the update window (zero dependencies, opened only when there is news)
 ```
 
 All decision logic lives in pure functions; side effects are concentrated in `build-backend.ts` and `backend.rs`.

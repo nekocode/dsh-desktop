@@ -18,7 +18,8 @@
     "stage:runtime": "node --experimental-strip-types scripts/stage-runtime.ts",
     "prebuild": "npm run build:backend && npm run stage:runtime && npm run smoke",
     "check": "npm run typecheck && npm run format:check && npm test && npm run lint:rust && npm run test:rust",
-    "icon": "node --experimental-strip-types scripts/make-icon.ts"
+    "icon": "node --experimental-strip-types scripts/make-icon.ts",
+    "deploy:dist": "wrangler deploy --profile ${WRANGLER_PROFILE:-xiu}"
   },
   "devDependencies": {
     "@tauri-apps/cli": "^2.11.4",

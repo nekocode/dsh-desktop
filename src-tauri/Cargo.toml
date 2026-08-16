@@ -15,6 +15,7 @@ tauri-build = { version = "2", features = [] }
 [dependencies]
 tauri = { version = "2", features = [] }
 tauri-plugin-shell = "2"
+tauri-plugin-updater = "2"
 # Only the timer is used: the startup watchdog needs to sleep inside async.
 tokio = { version = "1", features = ["time"] }
 serde = { version = "1", features = ["derive"] }

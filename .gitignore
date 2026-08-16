@@ -13,6 +13,9 @@ src-tauri/binaries/
 # Capability schema Tauri generates at build time; it follows tauri.conf.json, not source.
 src-tauri/gen/
 
+# Wrangler's local scratch state (including a simulated copy of the R2 bucket).
+.wrangler/
+
 # Icons: the single source of truth is scripts/make-icon.ts (artwork from the upstream
 # favicon, color from the official brand blue); `npm run icon` regenerates the whole set.
 # Keep only the two the macOS build actually needs (verified: without icon.png,

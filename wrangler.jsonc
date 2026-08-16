@@ -1,0 +1,19 @@
+{
+  // The distribution host: R2 bucket `dsh-desktop-dist` served as `dsh-desktop.xiu.ai`.
+  //
+  // Deploy with `npm run deploy:dist` (which pins the Cloudflare auth profile). The Worker source
+  // is `scripts/dist-worker.ts` and it has unit tests — `npm test` covers the routing rules, so a
+  // deploy is never the first time they run.
+  //
+  // `custom_domain` creates the DNS record in the xiu.ai zone on the first deploy. A plain route
+  // pattern would not: it only attaches a Worker to a hostname that already resolves.
+  "name": "dsh-desktop-dist",
+  "main": "scripts/dist-worker.ts",
+  "compatibility_date": "2026-08-16",
+  "observability": { "enabled": true },
+  // No workers.dev URL: one authoritative download origin, so a stale second hostname cannot end up
+  // baked into someone's installed copy.
+  "workers_dev": false,
+  "routes": [{ "pattern": "dsh-desktop.xiu.ai", "custom_domain": true }],
+  "r2_buckets": [{ "binding": "DIST_BUCKET", "bucket_name": "dsh-desktop-dist" }],
+}

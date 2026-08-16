@@ -1,5 +1,8 @@
 #!/usr/bin/env bash
-# Release build: build -> sign every binary -> notarize -> staple -> DMG.
+# Release build: build -> sign every binary -> notarize -> staple -> DMG -> updater artifact.
+#
+# `--release` additionally publishes: artifacts and manifest to R2, DMG to a GitHub Release. The
+# publishing itself lives in scripts/publish.ts, because its ordering rules deserve tests.
 #
 # Why not let Tauri sign: it only signs the executables under `Contents/MacOS/` and never touches
 # the `.node` native modules or `spawn-helper` under `Contents/Resources/`. In practice notarization
@@ -13,6 +16,33 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
+
+# Release credentials — Apple's, and the updater signing key. Kept out of the repository; `.env.*`
+# is gitignored. Sourced rather than exported by hand so that one forgotten variable cannot make a
+# release quietly produce an unsigned update.
+ENV_FILE="$ROOT/scripts/.env.local"
+if [[ -f "$ENV_FILE" ]]; then
+  set -a
+  # shellcheck disable=SC1090
+  source "$ENV_FILE"
+  set +a
+fi
+
+DO_RELEASE=false
+NOTES_FILE=""
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --release) DO_RELEASE=true; shift ;;
+    --notes-file)
+      [[ $# -ge 2 ]] || { echo "Error: --notes-file requires a path" >&2; exit 1; }
+      NOTES_FILE="$2"; shift 2 ;;
+    -h|--help)
+      echo "Usage: $(basename "$0") [--release] [--notes-file PATH]"
+      echo "  SKIP_NOTARIZE=true  sign without notarizing (testing only; never publish one)"
+      exit 0 ;;
+    *) echo "Unknown argument: $1" >&2; exit 1 ;;
+  esac
+done
 
 # tauri.conf.json owns the product name; it decides the bundle filename, so deriving it here keeps
 # a rename from breaking the release script 20 minutes into a run.
@@ -49,6 +79,25 @@ if [[ "$SKIP_NOTARIZE" == false ]]; then
   [[ -f "$KEY_PATH" ]] || fail ".p8 not found: ${KEY_PATH:-<NOTARIZE_KEY_PATH unset>}"
   NOTARY_ARGS=(--key "$KEY_PATH" --key-id "$KEY_ID" --issuer "$ISSUER")
   echo "Notarization key: $KEY_ID"
+fi
+
+step "Verifying the updater signing key"
+# Checked even without --release: every build produces a signed update artifact, and discovering a
+# missing key after a 30 minute notarization is the expensive way to find out.
+[[ -f "${TAURI_SIGNING_PRIVATE_KEY_PATH:-}" ]] \
+  || fail "TAURI_SIGNING_PRIVATE_KEY_PATH is not a file: ${TAURI_SIGNING_PRIVATE_KEY_PATH:-<unset>}
+Generate one with: npx tauri signer generate -w ~/.tauri/dsh-desktop.key
+Its public half belongs in tauri.conf.json; changing it strands every installed copy."
+echo "Updater key: $TAURI_SIGNING_PRIVATE_KEY_PATH"
+
+if [[ "$DO_RELEASE" == true ]]; then
+  step "Verifying release tooling"
+  command -v wrangler >/dev/null || fail "wrangler is not installed (needed to publish to R2)"
+  command -v gh >/dev/null || fail "gh is not installed (needed for the GitHub Release)"
+  [[ -z "$NOTES_FILE" || -f "$NOTES_FILE" ]] || fail "notes file not found: $NOTES_FILE"
+  # An unnotarized build installs on the machine that built it and nowhere else. Publishing one
+  # means every user who auto-updates lands on an app Gatekeeper refuses to open.
+  [[ "$SKIP_NOTARIZE" == false ]] || fail "refusing to publish a build made with SKIP_NOTARIZE=true"
 fi
 
 # --- Build (no signing identity, so Tauri produces an unsigned bundle) ---
@@ -172,7 +221,14 @@ fi
 # unsigned .app.
 
 step "Building the DMG"
-DMG="$DIST/${PRODUCT// /-}-$(node -p "require('./package.json').version")-$(uname -m).dmg"
+VERSION="$(node -p "require('./package.json').version")"
+# Artifact names come from scripts/dist-paths.ts — the same table publish.ts and the dist Worker
+# read. Spelling them out again here is how an artifact ends up at a key nothing links to.
+name() {
+  node --experimental-strip-types --input-type=module \
+    -e "import * as p from './scripts/dist-paths.ts'; console.log(p.$1)"
+}
+DMG="$DIST/$(name "dmgName('$VERSION')")"
 STAGE="$(mktemp -d)"
 trap 'rm -rf "$STAGE"' EXIT
 ditto "$APP" "$STAGE/$(basename "$APP")"
@@ -187,8 +243,52 @@ if [[ "$SKIP_NOTARIZE" == false ]]; then
   staple "$DMG"
 fi
 
+# --- Updater artifact ---
+#
+# Built here rather than by Tauri's `createUpdaterArtifacts`, and for the same reason as the DMG:
+# the bundler tars the .app during `tauri build`, which is *before* any of the signing above has
+# happened. That switch therefore ships an unsigned, unnotarized bundle to everyone who
+# auto-updates — an app the kernel kills on launch, on machines we cannot reach.
+
+step "Building the updater artifact"
+TARBALL="$DIST/$(name "tarballName('$VERSION', p.PLATFORM)")"
+rm -f "$TARBALL"
+# COPYFILE_DISABLE=1: otherwise macOS tar stores extended attributes as separate `._` members, and
+# the updater extracts them back *into* the .app — files codesign never sealed, inside a sealed
+# bundle, on the user's machine only.
+COPYFILE_DISABLE=1 tar czf "$TARBALL" -C "$(dirname "$APP")" "$(basename "$APP")"
+# `grep -c` with `|| true`, never `grep -q`: -q exits on the first hit, tar takes a SIGPIPE, and
+# under pipefail "the archive is clean" and "the archive is filthy" both come back as failure.
+APPLEDOUBLE="$(tar tzf "$TARBALL" | grep -c '/\._' || true)"
+[[ "$APPLEDOUBLE" == "0" ]] || fail "$APPLEDOUBLE AppleDouble members in the tarball — was COPYFILE_DISABLE lost?"
+
+# The archive is what users actually install, so verify the archive, not the directory it came from.
+# A signature or a ticket that does not survive the round trip is invisible here and fatal there.
+step "Verifying the updater artifact round-trips"
+ROUNDTRIP="$(mktemp -d)"
+trap 'rm -rf "$STAGE" "$ROUNDTRIP"' EXIT
+tar xzf "$TARBALL" -C "$ROUNDTRIP"
+codesign --verify --deep --strict "$ROUNDTRIP/$(basename "$APP")" \
+  || fail "the signature did not survive the tarball"
+if [[ "$SKIP_NOTARIZE" == false ]]; then
+  xcrun stapler validate "$ROUNDTRIP/$(basename "$APP")" \
+    || fail "the notarization ticket did not survive the tarball"
+fi
+echo "Round trip verified"
+
+step "Signing the updater artifact"
+# The key and its password are read straight from the environment (TAURI_SIGNING_PRIVATE_KEY_PATH /
+# _PASSWORD), so neither ever appears on a command line or in a process listing.
+npx tauri signer sign "$TARBALL" >/dev/null
+[[ -s "$TARBALL.sig" ]] || fail "tauri signer produced no signature next to $TARBALL"
+
 step "Verifying Gatekeeper acceptance"
 spctl -a -vvv -t install "$APP" 2>&1 | tail -3
 
 step "Artifacts"
-du -sh "$APP" "$DMG"
+du -sh "$APP" "$DMG" "$TARBALL"
+
+if [[ "$DO_RELEASE" == true ]]; then
+  step "Publishing"
+  node --experimental-strip-types scripts/publish.ts "$VERSION" ${NOTES_FILE:+"$NOTES_FILE"}
+fi
