@@ -18,6 +18,12 @@
   <body>
     <a class="skip" href="#main">{{skipToContent}}</a>
 
+    <!-- Above the nav, not inside it: this is someone else speaking, not navigation. It scrolls
+     away with the page while the nav stays stuck to the top. -->
+    <aside class="banner">
+      <p class="container banner-inner">{{sponsorLine}}</p>
+    </aside>
+
     <nav id="nav">
       <div class="container nav-inner">
         <a class="brand" href="{{homeHref}}">

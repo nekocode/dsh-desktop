@@ -138,6 +138,39 @@ a {
   left: 0;
 }
 
+/* --- sponsor banner ---
+   The one thing on the page that is not paper and hairlines, which is the point: the yellow says
+   this line is not the product talking. Its ink and its rules are local rather than the page's
+   tokens — the ground stays yellow in both schemes, so dark-mode --ink and --rule would be
+   invisible on it. */
+
+.banner {
+  --banner-ink: #26200a;
+  --banner-rule: color-mix(in srgb, var(--banner-ink) 22%, transparent);
+  background: #f7d046;
+  color: var(--banner-ink);
+  border-bottom: 1px solid var(--banner-rule);
+}
+
+/* Centred as text, not as a flex row: the sentence has a link inside it, and flex would make the
+   spaces on either side of that link into inter-item gaps and collapse them away — "provided
+   byxiu.ai". */
+.banner-inner {
+  text-align: center;
+  padding-block: 0.55rem;
+  border-inline-color: var(--banner-rule);
+  font-family: var(--mono);
+  font-size: 0.6875rem;
+  font-stretch: 85%;
+  letter-spacing: 0.04em;
+}
+
+.banner a {
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
 /* --- nav --- */
 
 #nav {

@@ -16,6 +16,13 @@ export const REPO = 'https://github.com/nekocode/dsh-desktop';
 export const UPSTREAM = 'https://github.com/deepseek-ai/deepseek-harness';
 
 /**
+ * Who pays for the compute. The name is data rather than markup because the banner copy links
+ * it by finding it inside the sentence — see `sponsorLine` in `render.ts` — so the name and the
+ * href have to be one fact, stated here.
+ */
+export const SPONSOR = { name: 'xiu.ai', href: 'https://xiu.ai' } as const;
+
+/**
  * Where the rendered site is written, and where the Worker serves it from. Pinned against
  * `wrangler.jsonc` by `site.test.ts` — the two files are never edited by the same change, and
  * a rename that reaches only one of them deploys an empty asset directory: every page 404s,

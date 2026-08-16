@@ -58,13 +58,18 @@ function assertGlyphsCovered(label: string, html: string): void {
  * the page through `render.ts` — the size labels and the platform statuses — which a
  * placeholder scan would report as unused every time.
  *
+ * Each page is matched twice, as markup and with its tags removed: a sentence with a link
+ * spliced into it — the sponsor banner — is on the page but never in it verbatim. Attribute-only
+ * copy such as `ogImageAlt` survives only in the first form, which is why both are kept.
+ *
  * Known limit, stated rather than left to be discovered: a very short value can be satisfied by
  * an unrelated occurrence — `versionFallback` is a single em dash, and any page containing one
  * passes. Every string long enough to be worth translating is checked properly.
  */
 function assertEveryStringRendered(locale: Locale, pages: readonly string[]): void {
+  const haystacks = pages.flatMap((page) => [page, page.replace(/<[^>]+>/g, '')]);
   const unused = Object.entries(STRINGS[locale])
-    .filter(([, value]) => !pages.some((page) => page.includes(value)))
+    .filter(([, value]) => !haystacks.some((page) => page.includes(value)))
     .map(([key]) => key);
   if (unused.length > 0) {
     throw new Error(`${locale}: strings translated but never rendered: ${unused.join(', ')}`);

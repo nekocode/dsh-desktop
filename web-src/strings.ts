@@ -25,6 +25,11 @@ const en = {
     'DeepSeek Harness, with a bar chart: 347 MB for the npm install against 98 MB for this app.',
   skipToContent: 'Skip to content',
 
+  // --- banner ---
+  // One sentence, with the sponsor's name inside it: the renderer links the name wherever the
+  // translation puts it, so neither language has to be bent around a fixed link position.
+  sponsorNote: 'All the tokens behind this project are provided by xiu.ai.',
+
   // --- nav ---
   navDownload: 'Download',
   navSource: 'Source',
@@ -101,6 +106,9 @@ const zh: Record<StringKey, string> = {
     '把官方 DeepSeek Harness 装进 macOS 和 Windows 的桌面应用。窗口交给系统自带的 WebView 画，所以装完是 98 MB，而不是 347 MB；界面就是上游那一套。',
   ogImageAlt: 'DeepSeek Harness，一张对比图：npm 装下来 347 MB，这个应用 98 MB。',
   skipToContent: '跳到正文',
+
+  // --- banner ---
+  sponsorNote: '本项目所有算力由 xiu.ai 提供',
 
   // --- nav ---
   navDownload: '下载',

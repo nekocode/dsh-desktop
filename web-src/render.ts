@@ -15,6 +15,7 @@ import {
   DOWNLOADS,
   ORIGIN,
   REPO,
+  SPONSOR,
   SIZE_HIGHLIGHT_ID,
   SIZE_ROWS,
   OG_IMAGE,
@@ -64,6 +65,26 @@ const HREFS = {
   repoReleasesHref: `${REPO}/releases`,
   upstreamHref: UPSTREAM,
 } as const;
+
+/**
+ * The banner line, with the sponsor's own name as the link.
+ *
+ * The copy is one whole sentence per language and the link is spliced in at the name, rather
+ * than the string being cut into a prefix and a suffix around a hole: the name falls
+ * mid-sentence in Chinese and at the end in English, and a fixed link position would force one
+ * of them to read like a translation. A locale that drops the name has no anchor to offer, so
+ * that fails the build instead of shipping an unclickable sponsor credit.
+ */
+function sponsorLine(locale: Locale): string {
+  const note = STRINGS[locale].sponsorNote;
+  if (!note.includes(SPONSOR.name)) {
+    throw new Error(`sponsorNote/${locale} never names ${SPONSOR.name}`);
+  }
+  const link = `<a href="${escapeAttr(SPONSOR.href)}" target="_blank" rel="noopener">${SPONSOR.name}</a>`;
+  // Replaced through a function: a literal replacement string would read `$&` and `$'` in the
+  // anchor as backreferences — the same footgun `template.ts` documents for `fill`.
+  return note.replace(SPONSOR.name, () => link);
+}
 
 /**
  * The size table: the page's central claim, drawn as bars scaled against the largest row.
@@ -279,6 +300,7 @@ function localeBase(page: Page, locale: Locale): Record<string, string> {
     homeHref: pagePath('home', locale),
     headAssets: headAssets(page),
     langOptions: languageOptions(locale),
+    sponsorLine: sponsorLine(locale),
   };
 }
 

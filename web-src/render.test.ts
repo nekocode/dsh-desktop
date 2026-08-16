@@ -2,14 +2,15 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { LOCALES, type Locale } from './locale.ts';
-import { DOWNLOADS } from './site.ts';
+import { DOWNLOADS, SPONSOR } from './site.ts';
 import { STRINGS } from './strings.ts';
-import { renderHome } from './render.ts';
+import { renderHome, renderNotFound } from './render.ts';
 
 const read = (name: string) => readFile(new URL(name, import.meta.url), 'utf8');
-const [layout, home] = await Promise.all([
+const [layout, home, notFound] = await Promise.all([
   read('templates/layout.html'),
   read('templates/home.html'),
+  read('templates/not-found.html'),
 ]);
 
 /**
@@ -50,6 +51,26 @@ test('a planned platform card carries no link', () => {
         `${locale}/${entry.id} card links the wrong way`,
       );
     });
+  }
+});
+
+test('the sponsor banner names the sponsor and links it, on every page in every language', () => {
+  // The banner sits in the shared layout, so the 404 carries it too. The link is spliced into
+  // the sentence at the sponsor's own name — the name is mid-sentence in Chinese and at the end
+  // in English — so a locale whose copy drops the name renders a banner nobody can click, and
+  // `sponsorLine` throws instead of letting that ship.
+  for (const locale of LOCALES) {
+    for (const [page, html] of [
+      ['home', renderHome(layout, home, locale)],
+      ['notFound', renderNotFound(layout, notFound, locale)],
+    ] as const) {
+      assert.ok(
+        html.includes(
+          `<a href="${SPONSOR.href}" target="_blank" rel="noopener">${SPONSOR.name}</a>`,
+        ),
+        `${locale}/${page} does not link the sponsor`,
+      );
+    }
   }
 });
 
