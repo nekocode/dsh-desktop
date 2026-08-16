@@ -58,10 +58,10 @@ Flip the `AGGRESSIVE` switches in `scripts/trim.ts`; every item can be reverted 
 | `telemetry` | OpenTelemetry export | 34 MB | none (upstream defaults to DISABLED) |
 | `workflow` | multi-agent workflow orchestration | 0.5 MB | out of scope for the first release |
 
-Also cut: 59 KaTeX fonts, every sourcemap, the `.d.ts` files outside the few packages copied whole,
-the node-pty prebuilds for three non-host platforms, and 5.5 MB of browser-only libraries — React,
-shiki and katex reach the artifact only because nft traces `@deepseek-ai` packages that no
-composition row loads, while the browser gets them from the prebuilt frontend bundle.
+Also cut: 59 KaTeX fonts, every sourcemap and `.d.ts` file, the node-pty prebuilds for three
+non-host platforms, and 5.5 MB of browser-only libraries — React, shiki and katex reach the
+artifact only because nft traces `@deepseek-ai` packages that no composition row loads, while the
+browser gets them from the prebuilt frontend bundle.
 
 Two dependencies are swapped rather than cut — one because its plugin cannot be removed, one because the tool is worth keeping:
 

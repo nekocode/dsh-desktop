@@ -295,14 +295,16 @@ export async function buildBackend(options: BuildOptions): Promise<void> {
     }
   }
 
-  // Native artifacts nft cannot trace, plus the shims' own dependencies, added directory by directory.
+  // Native artifacts nft cannot trace, plus the shims' own dependencies, added directory by
+  // directory. How a file got here says nothing about whether it is loadable, so these go through
+  // the same prune rules as everything else — all three copy paths filter identically.
   const native = new Set<string>();
   for (const extra of [...nativeExtras(rules), ...SHIM_PACKAGES]) {
     const dir = join(nodeModules, extra);
-    const files = existsSync(dir) ? listFiles(dir, nodeModules) : [];
-    if (files.length === 0)
+    const present = existsSync(dir) ? listFiles(dir, nodeModules) : [];
+    if (present.length === 0)
       throw new Error(`missing native artifact: ${extra} (did the upstream layout change?)`);
-    for (const rel of files) native.add(rel);
+    for (const rel of present) if (shouldKeep(rel, rules)) native.add(rel);
   }
 
   const keep = new Set([...thirdParty, ...scope, ...native]);

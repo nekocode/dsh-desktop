@@ -57,8 +57,7 @@ APPLE_TEAM_ID=<你的 team> ./scripts/dist.sh
 | `telemetry` | OpenTelemetry 导出 | 34 MB | 无（上游默认就是 DISABLED） |
 | `workflow` | 多智能体 workflow 编排 | 0.5 MB | 首版不做 |
 
-还剪掉了：59 个 KaTeX 字体、全部 sourcemap、整包复制的少数几个包之外的 `.d.ts`、
-三个非本机平台的 node-pty prebuild，以及 5.5 MB 纯浏览器库 —— React、shiki、katex 进产物，
+还剪掉了：59 个 KaTeX 字体、全部 sourcemap 和 `.d.ts`、三个非本机平台的 node-pty prebuild，以及 5.5 MB 纯浏览器库 —— React、shiki、katex 进产物，
 只是因为 nft 追踪了没有任何组合行加载的 `@deepseek-ai` 包，而浏览器是从预构建前端 bundle 拿的。
 
 另有两个依赖是**换掉**而不是砍掉 —— 一个是插件删不得，一个是工具值得留：
