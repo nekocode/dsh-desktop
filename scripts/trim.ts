@@ -290,6 +290,44 @@ export const PACKAGE_CUTS = {
       'semantics. Cost: 3-9x the wall clock, worst where the absolute is smallest (74 ms)',
     savedMiB: 3.6,
   },
+  browserOnlyDeps: {
+    packages: [
+      'react',
+      'react-dom',
+      'scheduler',
+      'use-sync-external-store',
+      '@shikijs',
+      'shiki',
+      'katex',
+    ],
+    /*
+     * These reach the artifact by accident. `installedScopePackages` feeds every `@deepseek-ai`
+     * package with a JS entry to nft, and four of them — dsh-client-web, dsh-client-web-react,
+     * dsh-client-ui-primitives, dsh-client-ui-attachment — are browser libraries whose entry
+     * imports React, shiki and katex. Checked across all 134 composition rows: not one row's
+     * server entry imports any of them. The rows that *depend* on React in package.json reference
+     * it only from `lib/client.js`, the bundle served to the browser.
+     *
+     * The browser does not load them from node_modules either: a served client bundle calls
+     * `require("react-dom")`, which the client runtime resolves from its own registry against the
+     * React already inside `dsh-web-frontend/dist/assets/vendor-*.js`. There is no import map, and
+     * `/node_modules/react-dom` returns the SPA fallback.
+     *
+     * Why not fix the entry set instead, which is the actual cause: "only trace packages that are
+     * composition rows" breaks the build. 61 scope packages are in no row, including
+     * `@deepseek-ai/dsh` itself, cordis, cordis-plugin-loader, and the directory-picker-browse /
+     * -native pair whose names dsh computes at runtime — the very case the broad entry set exists
+     * to cover. A hand list is the narrower risk.
+     *
+     * `npm run smoke` boots the artifact and creates a session against it, which is what keeps this
+     * re-provable. Its limit is worth stating: it never renders a message, so if upstream ever
+     * moves markdown, math or syntax rendering server-side, smoke would not notice.
+     */
+    reason:
+      'React, shiki and katex are pulled in by browser-only @deepseek-ai packages that no ' +
+      'composition row loads; the browser gets them from the prebuilt frontend bundle instead',
+    savedMiB: 5.5,
+  },
 } as const satisfies Record<string, PackageCut>;
 
 export type PackageCutName = keyof typeof PACKAGE_CUTS;
@@ -297,6 +335,7 @@ export type PackageCutName = keyof typeof PACKAGE_CUTS;
 export const AGGRESSIVE_PACKAGES: Record<PackageCutName, boolean> = {
   imageDecoding: true,
   nativeRipgrep: true,
+  browserOnlyDeps: true,
 };
 
 export function resolvePackageCuts(switches: Record<PackageCutName, boolean>): PackageCutName[] {
@@ -306,6 +345,30 @@ export function resolvePackageCuts(switches: Record<PackageCutName, boolean>): P
 /** Package name prefixes dropped by package-level cuts, merged and deduplicated. */
 export function droppedPackagePrefixes(names: readonly PackageCutName[]): string[] {
   return [...new Set(names.flatMap((name) => PACKAGE_CUTS[name].packages))];
+}
+
+/**
+ * Every dropped prefix must match something.
+ *
+ * Same reasoning as `assertEveryCutMatched` for rows: if upstream stops shipping one of these — a
+ * switch to preact, or pre-bundling — the prefix quietly matches nothing, `savedMiB` becomes a lie,
+ * and the size creeps back with a green build. Size is the reason this project exists.
+ *
+ * Presence is asked of the installed tree, not of nft's traced set: the packages most worth cutting
+ * are exactly the ones nft cannot see, such as ripgrep's runtime-computed platform package.
+ */
+export function assertDroppedPackagesMatched(
+  prefixes: readonly string[],
+  isInstalled: (prefix: string) => boolean,
+): void {
+  const unmatched = prefixes.filter((prefix) => !isInstalled(prefix));
+  if (unmatched.length > 0) {
+    throw new Error(
+      `these package cuts matched nothing in the upstream tree: ${unmatched.join(', ')}. ` +
+        'Upstream most likely stopped shipping them — drop the entry rather than leaving a cut ' +
+        'that silently saves nothing.',
+    );
+  }
 }
 
 /** `as const satisfies` narrows each entry, so widen before reading the optional fields. */

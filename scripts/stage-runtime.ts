@@ -41,7 +41,8 @@ export function hostTriple(platform: string, arch: string): string {
   return `${arch === 'arm64' ? 'aarch64' : 'x86_64'}-apple-darwin`;
 }
 
-const BASE = 'dsh-runtime';
+/** Sidecar basename; `smoke.ts` resolves the staged binary from it too. */
+export const SIDECAR_BASE = 'dsh-runtime';
 
 /** `command -v` rather than `which`: on some systems the latter is not an executable, only a shell builtin. */
 function which(command: string): string {
@@ -55,7 +56,10 @@ function main(): void {
 
   const outDir = join(root, 'src-tauri', 'binaries');
   mkdirSync(outDir, { recursive: true });
-  const target = join(outDir, sidecarFileName(BASE, hostTriple(process.platform, process.arch)));
+  const target = join(
+    outDir,
+    sidecarFileName(SIDECAR_BASE, hostTriple(process.platform, process.arch)),
+  );
   copyFileSync(source, target);
 
   const before = statSync(target).size;

@@ -10,7 +10,7 @@ Tauri 2 壳（系统 WKWebView，不打包 Chromium）+ 裁剪过的 dsh 后端 
 | | 体积 |
 |---|---|
 | `npm i @deepseek-ai/dsh` 原样 | 347 MB |
-| 裁剪后的 backend | 39 MB |
+| 裁剪后的 backend | 34 MB |
 | 安装后 `.app` | 102 MB |
 | DMG | 37 MB |
 
@@ -58,7 +58,8 @@ APPLE_TEAM_ID=<你的 team> ./scripts/dist.sh
 | `workflow` | 多智能体 workflow 编排 | 0.5 MB | 首版不做 |
 
 还剪掉了：59 个 KaTeX 字体、全部 sourcemap 和 `.d.ts`、三个非本机平台的 node-pty prebuild，
-以及产物内无人 require 的 katex CJS 双胞胎。
+以及 5.5 MB 纯浏览器库 —— React、shiki、katex 进产物只是因为 nft 追踪了没有任何组合行加载的
+`@deepseek-ai` 包，而浏览器是从预构建前端 bundle 拿它们的。
 
 另有两个依赖是**换掉**而不是砍掉 —— 拉进它们的插件删不得：
 
@@ -107,6 +108,7 @@ scripts/
   stage-runtime.ts  strip + 临时签名，放进 sidecar 目录
   make-icon.ts      官方 favicon + 官方品牌蓝 → App 图标
   dist.sh           签名 · 公证 · staple · DMG
+  smoke.ts          启动产物并证明会话建得起来
 src-tauri/src/
   lifecycle.rs      sidecar 状态机（纯函数，转移表写死）
   backend.rs        拉起 / 地址发现 / 收尸
@@ -118,7 +120,10 @@ ui/index.html       加载页（零依赖，后端起来后被整个导走）
 
 ```bash
 npm run check   # typecheck + format + JS 单测 + clippy + Rust 单测
+npm run smoke   # 启动产物、建会话、取客户端 bundle
 ```
+
+改过裁剪之后真正要跑的是 `smoke`：坏掉的裁剪照样能启动、照样服务完整界面，只在建会话时才失败。
 
 ## 已知限制
 

@@ -4,6 +4,7 @@ import { HOST_TAG } from './prune.ts';
 import { RIPGREP_REPLACEMENT } from './ripgrep-shim.ts';
 import {
   assertCutPlanesComplete,
+  assertDroppedPackagesMatched,
   assertSearchHasBinary,
   AGGRESSIVE_PACKAGES,
   entryReplacementsFor,
@@ -132,4 +133,13 @@ test('assertCutPlanesComplete accepts rows that appear on the host plane only', 
 
 test('assertCutPlanesComplete accepts rows declared on both planes', () => {
   assertCutPlanesComplete(['fileSearch'], new Set(['tool-fs-search']));
+});
+
+test('a package cut that matches nothing is rejected — it would silently save nothing', () => {
+  const installed = new Set(['react', '@shikijs']);
+  assert.throws(
+    () => assertDroppedPackagesMatched(['react', 'gone-upstream'], (p) => installed.has(p)),
+    /gone-upstream/,
+  );
+  assertDroppedPackagesMatched(['react', '@shikijs'], (p) => installed.has(p));
 });

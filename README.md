@@ -10,7 +10,7 @@ A Tauri 2 shell (system WKWebView, no bundled Chromium) + a trimmed dsh backend 
 | | Size |
 |---|---|
 | `npm i @deepseek-ai/dsh` as-is | 347 MB |
-| Trimmed backend | 39 MB |
+| Trimmed backend | 34 MB |
 | Installed `.app` | 102 MB |
 | DMG | 37 MB |
 
@@ -59,7 +59,9 @@ Flip the `AGGRESSIVE` switches in `scripts/trim.ts`; every item can be reverted 
 | `workflow` | multi-agent workflow orchestration | 0.5 MB | out of scope for the first release |
 
 Also cut: 59 KaTeX fonts, all sourcemaps and `.d.ts` files, the node-pty prebuilds for three
-non-host platforms, and katex's CJS twin, which nothing in the artifact requires.
+non-host platforms, and 5.5 MB of browser-only libraries — React, shiki and katex reach the
+artifact only because nft traces `@deepseek-ai` packages that no composition row loads, while the
+browser gets them from the prebuilt frontend bundle.
 
 Two dependencies are swapped rather than cut, because the plugins that pull them in cannot be removed:
 
@@ -109,6 +111,7 @@ scripts/
   stage-runtime.ts  strip + ad-hoc signing, staged into the sidecar directory
   make-icon.ts      official favicon + official brand blue → app icon
   dist.sh           sign · notarize · staple · DMG
+  smoke.ts          boot the artifact and prove a session can be created
 src-tauri/src/
   lifecycle.rs      sidecar state machine (pure functions, hard-coded transition table)
   backend.rs        spawn / address discovery / reaping
@@ -120,7 +123,11 @@ All decision logic lives in pure functions; side effects are concentrated in `bu
 
 ```bash
 npm run check   # typecheck + format + JS unit tests + clippy + Rust unit tests
+npm run smoke   # boot the built backend, create a session, serve a client bundle
 ```
+
+`smoke` is the one that matters after changing a cut: a broken cut can still launch and serve a
+complete UI, and only fail when a session is created.
 
 ## Known limitations
 

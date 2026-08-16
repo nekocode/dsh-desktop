@@ -40,6 +40,7 @@ import {
 import { disablePresetRows } from './preset-patch.ts';
 import {
   AGGRESSIVE,
+  assertDroppedPackagesMatched,
   AGGRESSIVE_PACKAGES,
   assertCutPlanesComplete,
   assertSearchHasBinary,
@@ -65,7 +66,7 @@ import { PTY_REWRITE } from './pty-shim.ts';
 
 const SCOPE = '@deepseek-ai';
 /** The real entry of the whole plugin tree. It has only `bin` and no exports, so it cannot be resolved and must be hard-coded. */
-const DSH_ENTRY = `${SCOPE}/dsh/lib/bin.js`;
+export const DSH_ENTRY = `${SCOPE}/dsh/lib/bin.js`;
 /** Upstream keeps the agent-plane composition inside the dsh package; profile-boot hard-codes it as the system root. */
 const PRESET_ROOT = `${SCOPE}/dsh/config/agent-presets`;
 const PRESET_CONFIG = 'agent.cordis.yml';
@@ -224,6 +225,8 @@ function copyFiles(nodeModules: string, outNodeModules: string, paths: Iterable<
   }
 }
 
+export const BACKEND_OUT_DIR = join('build', 'backend');
+
 export async function buildBackend(options: BuildOptions): Promise<void> {
   const rules = options.prune ?? DEFAULT_PRUNE;
   const nodeModules = join(options.upstreamDir, 'node_modules');
@@ -303,6 +306,7 @@ export async function buildBackend(options: BuildOptions): Promise<void> {
   }
 
   const keep = new Set([...thirdParty, ...scope, ...native]);
+  assertDroppedPackagesMatched(droppedPrefixes, (prefix) => existsSync(join(nodeModules, prefix)));
   log(
     'copy list',
     `third-party ${thirdParty.size} + scope ${scope.size} + native ${native.size} = ${keep.size}`,
@@ -512,6 +516,6 @@ const isMain =
 if (isMain) {
   await buildBackend({
     upstreamDir: join(root(), 'build', 'upstream'),
-    outDir: join(root(), 'build', 'backend'),
+    outDir: join(root(), BACKEND_OUT_DIR),
   });
 }

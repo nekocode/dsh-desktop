@@ -7,6 +7,7 @@
   "scripts": {
     "typecheck": "tsc --noEmit",
     "test": "node --test --experimental-strip-types scripts/**/*.test.ts",
+    "smoke": "node --experimental-strip-types scripts/smoke.ts",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "build:backend": "node --experimental-strip-types scripts/build-backend.ts",
@@ -15,7 +16,7 @@
     "app:build": "tauri build",
     "app:dev": "tauri dev",
     "stage:runtime": "node --experimental-strip-types scripts/stage-runtime.ts",
-    "prebuild": "npm run build:backend && npm run stage:runtime",
+    "prebuild": "npm run build:backend && npm run stage:runtime && npm run smoke",
     "check": "npm run typecheck && npm run format:check && npm test && npm run lint:rust && npm run test:rust",
     "icon": "node --experimental-strip-types scripts/make-icon.ts"
   },
