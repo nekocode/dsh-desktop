@@ -10,11 +10,16 @@
  * file of a third-party package is replaced instead, so an upstream dsh release has nothing to
  * conflict with.
  */
-import { HOST_TAG } from './prune.ts';
+import { currentTarget } from './target.ts';
 import type { EntryReplacement } from './trim.ts';
 
-/** The per-platform native binary the wasm build makes unnecessary. */
-export const NATIVE_RIPGREP_PACKAGE = `@vscode/ripgrep-${HOST_TAG}`;
+/**
+ * The per-platform native binary the wasm build makes unnecessary.
+ *
+ * Named after the build target rather than the host: the cut asserts that the package it drops is
+ * actually on disk, and a cross-build stages only the target's own optional dependencies.
+ */
+export const NATIVE_RIPGREP_PACKAGE = `@vscode/ripgrep-${currentTarget().tag}`;
 
 export const RIPGREP_REPLACEMENT: EntryReplacement = {
   target: '@vscode/ripgrep/lib/index.js',

@@ -5,7 +5,8 @@
  * Pure — no filesystem, no network. `build.ts` is the only module that touches either.
  */
 
-import { DIST_BASE_URL, latestDmgName, latestKey } from '../scripts/dist-paths.ts';
+import { DIST_BASE_URL, latestArtifactName, latestKey } from '../scripts/dist-paths.ts';
+import { TARGETS } from '../scripts/target.ts';
 import { LOCALES, ROOT_LOCALE, localizedPath, type Locale } from './locale.ts';
 import type { StringKey } from './strings.ts';
 
@@ -139,9 +140,9 @@ export type Download =
     };
 
 /**
- * Every platform the page speaks about. macOS points at the mutable `latest` alias derived
- * from `dist-paths.ts`, so cutting a release never means editing HTML; the other two are
- * here to hold their place, and gain an `href` the day a pipeline produces one.
+ * Every platform the page speaks about. Each available entry points at the mutable `latest`
+ * alias derived from `dist-paths.ts`, so cutting a release never means editing HTML; a planned
+ * one is here to hold its place, and gains an `href` the day a pipeline produces one.
  */
 export const DOWNLOADS: readonly Download[] = [
   {
@@ -149,24 +150,39 @@ export const DOWNLOADS: readonly Download[] = [
     id: 'macos-arm64',
     os: 'macOS',
     arch: 'Apple Silicon',
-    href: `/${latestKey(latestDmgName())}`,
+    href: `/${latestKey(latestArtifactName(TARGETS['darwin-arm64']))}`,
   },
-  { status: 'planned', id: 'windows-x64', os: 'Windows', arch: 'x86-64' },
+  {
+    status: 'available',
+    id: 'windows-x64',
+    os: 'Windows',
+    arch: 'x86-64',
+    href: `/${latestKey(latestArtifactName(TARGETS['win32-x64']))}`,
+  },
   { status: 'planned', id: 'linux-x64', os: 'Linux', arch: 'x86-64' },
 ];
 
 /**
- * The download the hero pushes. Throws rather than picking one when there is more than a
- * single candidate: on the day Windows ships, "which one does the big button offer" is a
- * decision someone has to make, not something this function should guess.
+ * Which download the hero button offers before it knows what the visitor is running.
+ *
+ * Stated, not inferred. With one platform "the available one" was the same answer; with two it
+ * is a decision, and a function that picked the first available entry would silently re-decide
+ * it the day the table is reordered. The button switches to the visitor's own platform in the
+ * browser — see `home.html` — so this is the answer given to a crawler, and to anyone whose
+ * platform is not one we ship.
  */
-export function primaryDownload(): Extract<Download, { status: 'available' }> {
-  const available = DOWNLOADS.filter((entry) => entry.status === 'available');
-  const [first] = available;
-  if (!first || available.length !== 1) {
-    throw new Error(`expected exactly one available download, found ${available.length}`);
+export const PRIMARY_DOWNLOAD_ID = 'macos-arm64';
+
+export function downloadById(id: string): Extract<Download, { status: 'available' }> {
+  const entry = DOWNLOADS.find((candidate) => candidate.id === id);
+  if (entry?.status !== 'available') {
+    throw new Error(`no available download with id ${id}`);
   }
-  return first;
+  return entry;
+}
+
+export function primaryDownload(): Extract<Download, { status: 'available' }> {
+  return downloadById(PRIMARY_DOWNLOAD_ID);
 }
 
 /**
@@ -180,14 +196,17 @@ export function primaryDownload(): Extract<Download, { status: 'available' }> {
 export type SizeRow = {
   readonly id: string;
   readonly labelKey: StringKey;
+  /** macOS arm64 — the platform the chart is scaled and highlighted against. */
   readonly megabytes: number;
+  /** Windows x64. Equal to `megabytes` where both platforms carry the same bytes. */
+  readonly windowsMegabytes: number;
 };
 
 export const SIZE_ROWS: readonly SizeRow[] = [
-  { id: 'upstream', labelKey: 'sizeUpstream', megabytes: 347 },
-  { id: 'backend', labelKey: 'sizeBackend', megabytes: 31 },
-  { id: 'app', labelKey: 'sizeApp', megabytes: 98 },
-  { id: 'dmg', labelKey: 'sizeDmg', megabytes: 36 },
+  { id: 'upstream', labelKey: 'sizeUpstream', megabytes: 347, windowsMegabytes: 347 },
+  { id: 'backend', labelKey: 'sizeBackend', megabytes: 31, windowsMegabytes: 33 },
+  { id: 'app', labelKey: 'sizeApp', megabytes: 98, windowsMegabytes: 130 },
+  { id: 'installer', labelKey: 'sizeInstaller', megabytes: 36, windowsMegabytes: 32 },
 ];
 
 /** The row the bars are scaled against, and the one the eye should land on. */

@@ -12,12 +12,21 @@
         <h1 class="wordmark rise" style="--i: 1"><span>DeepSeek</span><span>Harness</span></h1>
         <p class="claim rise" style="--i: 2">{{heroClaim}}</p>
         <p class="lede rise" style="--i: 3">{{heroLede}}</p>
+        <!-- Rendered for macOS and switched to Windows in the browser (script at the end of
+           this file). The served markup is the one a crawler and a no-JS visitor get, and the
+           full platform table below is always correct regardless. -->
         <div class="cta rise" style="--i: 4">
-          <a class="btn" href="{{dmgHref}}"
-            ><span class="btn-arrow" aria-hidden="true">↓</span>{{ctaDownload}}</a
+          <a
+            class="btn"
+            id="cta"
+            href="{{dmgHref}}"
+            data-windows-href="{{windowsHref}}"
+            data-windows-label="{{ctaDownloadWindows}}"
+            ><span class="btn-arrow" aria-hidden="true">↓</span
+            ><span class="btn-label">{{ctaDownload}}</span></a
           >
           <p class="cta-meta">
-            {{ctaMeta}} ·
+            <span id="cta-meta" data-windows-meta="{{ctaMetaWindows}}">{{ctaMeta}}</span> ·
             <a href="{{repoReleasesHref}}" target="_blank" rel="noopener">{{releaseNotes}}</a>
           </p>
         </div>
@@ -30,6 +39,7 @@
         <ol class="spec" role="list">
           {{sizeTable}}
         </ol>
+        <p class="spec-legend">{{sizeLegend}}</p>
         <p class="spec-note">{{sizeNote}}</p>
       </figure>
     </div>
@@ -77,6 +87,17 @@
 <!-- The version in the hero pill. The update manifest is the single source of truth for what
      is shipping; failing quietly is correct, since the dash it replaces is already honest. -->
 <script>
+  // The hero offers the visitor's own platform. Done here rather than server-side because the
+  // page is a static file behind a cache — one rendering serves every visitor, so the only place
+  // that can know what they are running is their browser.
+  if (/Windows|Win32|Win64/i.test(navigator.userAgent)) {
+    const cta = document.getElementById('cta');
+    const meta = document.getElementById('cta-meta');
+    cta.href = cta.dataset.windowsHref;
+    cta.querySelector('.btn-label').textContent = cta.dataset.windowsLabel;
+    meta.textContent = meta.dataset.windowsMeta;
+  }
+
   fetch('{{manifestHref}}')
     .then((response) => (response.ok ? response.json() : null))
     .then((manifest) => {

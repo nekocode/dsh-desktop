@@ -4,7 +4,8 @@ import { readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 
 import { BUCKET } from './publish.ts';
-import { DIST_BASE_URL, PLATFORM, manifestKey, url } from './dist-paths.ts';
+import { DIST_BASE_URL, manifestKey, url } from './dist-paths.ts';
+import { TARGETS } from './target.ts';
 
 /*
  * Drift guards. Every fact below is stated in two files that no single change touches together —
@@ -18,10 +19,14 @@ const read = (...parts: string[]) => readFileSync(join(root, ...parts), 'utf8');
 const tauriConf = JSON.parse(read('src-tauri', 'tauri.conf.json'));
 const wranglerConf = read('wrangler.jsonc');
 
-test('the client fetches exactly the manifest key the publisher writes', () => {
+test('the client fetches exactly the manifest key the publisher writes, on every platform', () => {
   const endpoint: string = tauriConf.plugins.updater.endpoints[0];
-  // Tauri expands `{{target}}-{{arch}}` into the same identity the manifest is filed under.
-  assert.equal(endpoint.replace('{{target}}-{{arch}}', PLATFORM), url(manifestKey(PLATFORM)));
+  // Tauri expands `{{target}}-{{arch}}` into the same identity the manifest is filed under. One
+  // endpoint serves every platform, so a target whose spelling drifts fails only on that platform.
+  for (const target of Object.values(TARGETS)) {
+    const platform = target.updaterPlatform;
+    assert.equal(endpoint.replace('{{target}}-{{arch}}', platform), url(manifestKey(platform)));
+  }
 });
 
 test('the updater is pinned to a public key, or any host could serve an update', () => {

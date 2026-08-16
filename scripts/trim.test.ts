@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { HOST_TAG } from './prune.ts';
+import { currentTarget } from './target.ts';
 import { RIPGREP_REPLACEMENT } from './ripgrep-shim.ts';
 import {
   assertCutPlanesComplete,
@@ -66,8 +66,8 @@ test('entryReplacementsFor and replacementPackages follow the resolved cuts', ()
   assert.deepEqual(replacementPackages(['nativeRipgrep']), [...RIPGREP_REPLACEMENT.needs]);
 });
 
-test('the ripgrep cut drops a host-specific package — a hard-coded arch drops the wrong one', () => {
-  assert.equal(PACKAGE_CUTS.nativeRipgrep.packages[0], `@vscode/ripgrep-${HOST_TAG}`);
+test('the ripgrep cut drops a target-specific package — a hard-coded arch drops the wrong one', () => {
+  assert.equal(PACKAGE_CUTS.nativeRipgrep.packages[0], `@vscode/ripgrep-${currentTarget().tag}`);
 });
 
 test('keeping the search rows without a binary supplier is rejected — it ships a broken search', () => {

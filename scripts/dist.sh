@@ -17,16 +17,9 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 
-# Release credentials — Apple's, and the updater signing key. Kept out of the repository; `.env.*`
-# is gitignored. Sourced rather than exported by hand so that one forgotten variable cannot make a
-# release quietly produce an unsigned update.
-ENV_FILE="$ROOT/scripts/.env.local"
-if [[ -f "$ENV_FILE" ]]; then
-  set -a
-  # shellcheck disable=SC1090
-  source "$ENV_FILE"
-  set +a
-fi
+# shellcheck source=scripts/release-lib.sh
+source "$ROOT/scripts/release-lib.sh"
+load_release_env
 
 DO_RELEASE=false
 NOTES_FILE=""
@@ -52,9 +45,6 @@ APP="$BUNDLE_DIR/macos/$PRODUCT.app"
 ENTITLEMENTS="src-tauri/entitlements.plist"
 DIST="dist"
 SKIP_NOTARIZE="${SKIP_NOTARIZE:-false}"
-
-step() { printf '\n==> %s\n' "$1"; }
-fail() { echo "Error: $1" >&2; exit 1; }
 
 # --- Preflight checks: better to stop now than to ship a bundle that will not install ---
 
@@ -222,13 +212,7 @@ fi
 
 step "Building the DMG"
 VERSION="$(node -p "require('./package.json').version")"
-# Artifact names come from scripts/dist-paths.ts — the same table publish.ts and the dist Worker
-# read. Spelling them out again here is how an artifact ends up at a key nothing links to.
-name() {
-  node --experimental-strip-types --input-type=module \
-    -e "import * as p from './scripts/dist-paths.ts'; console.log(p.$1)"
-}
-DMG="$DIST/$(name "dmgName('$VERSION')")"
+DMG="$DIST/$(name "artifactName(target, '$VERSION')")"
 STAGE="$(mktemp -d)"
 trap 'rm -rf "$STAGE"' EXIT
 ditto "$APP" "$STAGE/$(basename "$APP")"
@@ -251,7 +235,7 @@ fi
 # auto-updates — an app the kernel kills on launch, on machines we cannot reach.
 
 step "Building the updater artifact"
-TARBALL="$DIST/$(name "tarballName('$VERSION', p.PLATFORM)")"
+TARBALL="$DIST/$(name "updaterPayloadName(target, '$VERSION')")"
 rm -f "$TARBALL"
 # COPYFILE_DISABLE=1: otherwise macOS tar stores extended attributes as separate `._` members, and
 # the updater extracts them back *into* the .app — files codesign never sealed, inside a sealed

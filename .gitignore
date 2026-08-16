@@ -22,11 +22,12 @@ web/
 
 # Icons: the single source of truth is scripts/make-icon.ts (artwork from the upstream
 # favicon, color from the official brand blue); `npm run icon` regenerates the whole set.
-# Keep only the two the macOS build actually needs (verified: without icon.png,
-# generate_context! fails at compile time with "failed to open icon"; the dozens of
-# Windows/Android/iOS ones are all unused here).
+# Keep only the three the builds actually need (verified: without icon.png,
+# generate_context! fails at compile time with "failed to open icon"; icon.ico is what
+# tauri-winres compiles into the Windows executable; the Android/iOS ones are all unused here).
 src-tauri/icons/*
 !src-tauri/icons/icon.icns
+!src-tauri/icons/icon.ico
 !src-tauri/icons/icon.png
 
 # Intermediate output of `npm run icon`: written only to be fed to `tauri icon`.

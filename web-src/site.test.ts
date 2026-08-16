@@ -1,17 +1,20 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
-import { latestDmgName, latestKey } from '../scripts/dist-paths.ts';
+import { latestArtifactName, latestKey } from '../scripts/dist-paths.ts';
+import { TARGETS } from '../scripts/target.ts';
 import { LOCALES, ROOT_LOCALE, type Locale } from './locale.ts';
 import {
   DOWNLOADS,
   OUTPUT_DIR,
+  PRIMARY_DOWNLOAD_ID,
   PAGES,
   SHELL_STYLESHEET,
   SIZE_ROWS,
   STYLESHEETS,
   alternates,
   baselineMegabytes,
+  downloadById,
   homeUrl,
   notFoundUrlFor,
   outputPath,
@@ -70,15 +73,43 @@ test('every page links the shell first, and only the sheets that exist', () => {
   }
 });
 
-test('exactly one platform is downloadable, and it is macOS', () => {
-  // The page advertises three platforms and can serve one. If that ever stops being true
-  // silently, the page is lying about what it will hand you.
-  assert.equal(primaryDownload().id, 'macos-arm64');
-  assert.equal(DOWNLOADS.filter((entry) => entry.status === 'planned').length, 2);
+test('the hero offers a stated platform, not whichever entry happens to be first', () => {
+  // With one shipping platform "the available one" and "the one the button offers" were the same
+  // answer. With two they are not, and a page that re-decides it when the table is reordered is a
+  // page that quietly hands Windows users a DMG.
+  assert.equal(primaryDownload().id, PRIMARY_DOWNLOAD_ID);
+  assert.equal(primaryDownload().status, 'available');
 });
 
-test('the download href is the artifact path, not a copy of it', () => {
-  assert.equal(primaryDownload().href, `/${latestKey(latestDmgName())}`);
+test('every download href is the artifact path, not a copy of it', () => {
+  assert.equal(
+    downloadById('macos-arm64').href,
+    `/${latestKey(latestArtifactName(TARGETS['darwin-arm64']))}`,
+  );
+  assert.equal(
+    downloadById('windows-x64').href,
+    `/${latestKey(latestArtifactName(TARGETS['win32-x64']))}`,
+  );
+});
+
+test('a planned platform cannot be handed out', () => {
+  // The union makes "planned, with a download link" unrepresentable; this checks the table still
+  // uses it that way, and that asking for one by id fails loudly rather than returning undefined.
+  assert.throws(() => downloadById('linux-x64'), /linux-x64/);
+});
+
+test('the row button says only the verb — a platform-specific label lies on every other row', () => {
+  // It did: the table reused the hero's "Download for macOS" for every row, and the day Windows
+  // shipped that label appeared on the Windows row.
+  for (const locale of LOCALES) {
+    const strings = STRINGS[locale as Locale];
+    assert.ok(
+      !/macOS|Windows/.test(strings.downloadAction),
+      `${locale} row button names a platform`,
+    );
+    assert.match(strings.ctaDownload, /macOS/);
+    assert.match(strings.ctaDownloadWindows, /Windows/);
+  }
 });
 
 test('every download entry is uniquely identified', () => {
@@ -86,7 +117,9 @@ test('every download entry is uniquely identified', () => {
 });
 
 test('the size baseline is the largest row — the bars are scaled against it', () => {
-  assert.equal(baselineMegabytes(), Math.max(...SIZE_ROWS.map((row) => row.megabytes)));
+  // Both platforms' bars share this scale, so it has to bound both or a bar overflows its track.
+  const all = SIZE_ROWS.flatMap((row) => [row.megabytes, row.windowsMegabytes]);
+  assert.equal(baselineMegabytes(), Math.max(...all));
 });
 
 test('no string is present but blank', () => {
@@ -99,8 +132,12 @@ test('the size table and both READMEs state the same numbers', async () => {
   const expected = SIZE_ROWS.map((row) => row.megabytes);
   for (const name of ['README.md', 'README.zh.md']) {
     const text = await read(name);
-    // The size table is the only markdown table in each README; read its right column.
-    const found = [...text.matchAll(/^\|.*\|\s*(\d+)\s*MB\s*\|$/gm)].map(([, mb]) => Number(mb));
+    // The READMEs list one column per platform; the chart argues about macOS, so it is the macOS
+    // column — the first `N MB` cell of each row — that has to agree. Rows whose second cell is
+    // not a bare size (the trim tables further down) do not match and are not compared.
+    const found = [...text.matchAll(/^\|[^|]*\|\s*(\d+)\s*MB[^|]*\|/gm)].map(([, mb]) =>
+      Number(mb),
+    );
     assert.deepEqual(found, expected, `${name} disagrees with SIZE_ROWS`);
   }
 });

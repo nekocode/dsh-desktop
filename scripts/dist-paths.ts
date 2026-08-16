@@ -7,28 +7,18 @@
  *
  * Consumed from both languages on purpose: `dist-worker.ts` imports it to decide what is servable,
  * and `dist.sh` shells out to it for every key it uploads. One table, two readers.
+ *
+ * Nothing here reads the environment, and the target arrives as an argument. The Worker bundles
+ * this module, and a top-level `currentTarget()` would put a build-time decision inside a running
+ * edge script.
  */
+import type { Target } from './target.ts';
 
 /** Authoritative download host. Also the origin the updater endpoint in `tauri.conf.json` points at. */
 export const DIST_BASE_URL = 'https://dsh-desktop.xiu.ai';
 
-/**
- * This build's platform identity, verbatim from Tauri's `{{target}}-{{arch}}` expansion.
- *
- * The client fetches `updates/<platform>.json` and then looks itself up under
- * `platforms[<platform>]` inside that file — so the filename, the key inside it and the tarball
- * name are all derived from this one string. Anything else validates fine and then matches nothing.
- */
-export const PLATFORM = 'darwin-aarch64';
-
 /** Product name as it appears in artifact filenames (`productName` with spaces dashed). */
 const PRODUCT = 'DeepSeek-Harness';
-
-/**
- * Human-facing architecture label for the DMG. macOS users know "arm64"; "aarch64" is the toolchain
- * spelling nobody types on a download page. The mapping between the two lives here and nowhere else.
- */
-const DMG_ARCH = 'arm64';
 
 export type ArtifactKind = 'manifest' | 'release' | 'latest';
 
@@ -61,17 +51,34 @@ export function url(key: string): string {
   return `${DIST_BASE_URL}/${key}`;
 }
 
-export function dmgName(version: string): string {
-  return `${PRODUCT}-${version}-${DMG_ARCH}.dmg`;
+/**
+ * What a person downloads: the DMG on macOS, the installer on Windows.
+ *
+ * Named from the target rather than spelled out per platform, because the two differ only in the
+ * suffix — and because the Worker's route whitelist rejects spaces, which is exactly what Tauri's
+ * own `DeepSeek Harness_0.1.0_x64-setup.exe` contains. Renaming to this on the way into `dist/` is
+ * what keeps a published URL from 404ing.
+ */
+export function artifactName(target: Target, version: string): string {
+  return `${PRODUCT}-${version}-${target.archLabel}${target.downloadSuffix}`;
 }
 
-export function latestDmgName(): string {
-  return `${PRODUCT}-${DMG_ARCH}.dmg`;
+/** The unversioned alias a download page can hard-code. */
+export function latestArtifactName(target: Target): string {
+  return `${PRODUCT}-${target.archLabel}${target.downloadSuffix}`;
 }
 
-/** The updater's own artifact: a gzipped `.app`, named per platform so platforms cannot collide. */
-export function tarballName(version: string, platform: string): string {
-  return `${PRODUCT}-${version}-${platform}.app.tar.gz`;
+/**
+ * What the updater downloads.
+ *
+ * On Windows it is the installer itself — the same file as `artifactName`, which the publisher
+ * relies on to upload one object instead of two identical ones. On macOS it is a gzipped `.app`,
+ * named per platform so two platforms cannot collide in one directory.
+ */
+export function updaterPayloadName(target: Target, version: string): string {
+  return target.updaterPayload === 'installer'
+    ? artifactName(target, version)
+    : `${PRODUCT}-${version}-${target.updaterPlatform}.app.tar.gz`;
 }
 
 /**

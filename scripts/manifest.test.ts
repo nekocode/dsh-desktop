@@ -1,14 +1,17 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { buildManifest } from './manifest.ts';
-import { PLATFORM, tarballName, releaseKey, url } from './dist-paths.ts';
+import { releaseKey, updaterPayloadName, url } from './dist-paths.ts';
+import { TARGETS } from './target.ts';
+
+const MACOS = TARGETS['darwin-arm64'];
 
 const INPUT = {
   version: '0.2.0',
   notes: 'Fixed the thing.',
   pubDate: '2026-08-16T08:00:00.000Z',
-  platform: PLATFORM,
-  url: url(releaseKey('0.2.0', tarballName('0.2.0', PLATFORM))),
+  platform: MACOS.updaterPlatform,
+  url: url(releaseKey('0.2.0', updaterPayloadName(MACOS, '0.2.0'))),
   signature: 'dW50cnVzdGVkIGNvbW1lbnQ6...',
 };
 
@@ -20,9 +23,9 @@ test('the manifest states the version the client compares against its own', () =
 
 test('the platform key is the one the client looks itself up under', () => {
   const platforms = parse().platforms;
-  assert.deepEqual(Object.keys(platforms), [PLATFORM]);
-  assert.equal(platforms[PLATFORM].url, INPUT.url);
-  assert.equal(platforms[PLATFORM].signature, INPUT.signature);
+  assert.deepEqual(Object.keys(platforms), [MACOS.updaterPlatform]);
+  assert.equal(platforms[MACOS.updaterPlatform].url, INPUT.url);
+  assert.equal(platforms[MACOS.updaterPlatform].signature, INPUT.signature);
 });
 
 test('one platform per file — a broken entry cannot take the other platforms down with it', () => {

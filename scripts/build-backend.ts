@@ -31,12 +31,13 @@ import { nodeFileTrace } from '@vercel/nft';
 import { parseComposedConfig, type PluginRow } from './compose.ts';
 import { packageNameOf, planBackend } from './backend-plan.ts';
 import {
-  DEFAULT_PRUNE,
+  defaultPrune,
   executableExtras,
   nativeExtras,
   shouldKeep,
   type PruneRules,
 } from './prune.ts';
+import { currentTarget, upstreamDirName } from './target.ts';
 import { disablePresetRows } from './preset-patch.ts';
 import {
   AGGRESSIVE,
@@ -76,7 +77,7 @@ export type BuildOptions = {
   readonly upstreamDir: string;
   /** Output directory; it is wiped and rebuilt. */
   readonly outDir: string;
-  readonly prune?: PruneRules;
+  readonly prune: PruneRules;
 };
 
 function log(what: string, result: string): void {
@@ -228,7 +229,8 @@ function copyFiles(nodeModules: string, outNodeModules: string, paths: Iterable<
 export const BACKEND_OUT_DIR = join('build', 'backend');
 
 export async function buildBackend(options: BuildOptions): Promise<void> {
-  const rules = options.prune ?? DEFAULT_PRUNE;
+  const rules = options.prune;
+  log('target', rules.target.tag);
   const nodeModules = join(options.upstreamDir, 'node_modules');
   const outNodeModules = join(options.outDir, 'node_modules');
 
@@ -516,8 +518,10 @@ function root(): string {
 const isMain =
   process.argv[1] !== undefined && resolve(process.argv[1]).endsWith('build-backend.ts');
 if (isMain) {
+  const target = currentTarget();
   await buildBackend({
-    upstreamDir: join(root(), 'build', 'upstream'),
+    upstreamDir: join(root(), 'build', upstreamDirName(target)),
     outDir: join(root(), BACKEND_OUT_DIR),
+    prune: defaultPrune(target),
   });
 }

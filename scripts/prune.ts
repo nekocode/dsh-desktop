@@ -5,28 +5,18 @@
  * The decision looks only at the relative path (relative to `node_modules/`); pure functions with
  * no filesystem involvement.
  */
+import type { Target } from './target.ts';
 
 export type PruneRules = {
-  /** Name of the only node-pty prebuild directory to keep. */
-  readonly prebuildDir: string;
+  /** Which platform the artifact is for. Every per-platform fact is read from here, never derived. */
+  readonly target: Target;
   /** Drop the KaTeX math fonts (59 files, 1.2 MiB). */
   readonly dropMathFonts: boolean;
 };
 
-/**
- * The host tag every per-platform package name is built from.
- *
- * Derived, not written down: `stage-runtime.ts` picks the sidecar triple from the same two values,
- * and `ripgrep-shim.ts` names its native package with it. A hard-coded arch would silently keep the
- * wrong artifact on a host it does not match, and the only symptom would be a confusing
- * "missing native artifact" much later in the build.
- */
-export const HOST_TAG = `${process.platform}-${process.arch}`;
-
-export const DEFAULT_PRUNE: PruneRules = {
-  prebuildDir: HOST_TAG,
-  dropMathFonts: true,
-};
+export function defaultPrune(target: Target): PruneRules {
+  return { target, dropMathFonts: true };
+}
 
 /**
  * Things nft's static tracing cannot see, which must be added to the copy list by hand. Every entry
@@ -34,18 +24,24 @@ export const DEFAULT_PRUNE: PruneRules = {
  *
  * - `node-pty/prebuilds/<platform>`: required through a relative path assembled at runtime; without
  *   it, startup dies in the subprocess plugin. `spawn-helper` is even more hidden — a forked
- *   executable with no require at all.
+ *   executable with no require at all. Absent entirely on targets whose PTY is the runtime's own.
  * - `node-addon-require-builtin*`: the cordis loader uses it to reach Node's internal module loader
  *   without `--expose-internals`. It picks a package from optionalDependencies per platform, with
  *   the name computed at runtime. Without it, the HMR that `runProfile` unconditionally creates
  *   throws "--expose-internals is required" and the whole tree fails to start.
+ * - koffi's per-platform package: loaded through `existsSync` on a runtime-built name. Only the
+ *   Windows ACL sandbox imports koffi, so on macOS this is dead weight that nft happens to trace
+ *   anyway; naming it here makes the artifact's contents a decision rather than an accident.
  */
 export function nativeExtras(rules: PruneRules): string[] {
+  const { target } = rules;
+  const pty = target.nodePtyPrebuild;
   return [
-    `node-pty/prebuilds/${rules.prebuildDir}`,
+    ...(pty === null ? [] : [`node-pty/prebuilds/${pty}`]),
     'node-addon-require-builtin',
-    `node-addon-require-builtin-${rules.prebuildDir}`,
+    target.requireBuiltinPackage,
     'node-addon-native-custom-loader',
+    target.koffiPackage,
   ];
 }
 
@@ -56,9 +52,12 @@ export function nativeExtras(rules: PruneRules): string[] {
  * `posix_spawnp failed` the moment it opens a pty. This is not a Bun issue — Node fails the same
  * way, and the error never mentions permissions, only that spawn failed. Fix it at build time
  * rather than relying on the install environment.
+ *
+ * Empty on targets that ship no node-pty prebuild, and on Windows there is no executable bit at all.
  */
 export function executableExtras(rules: PruneRules): string[] {
-  return [`node-pty/prebuilds/${rules.prebuildDir}/spawn-helper`];
+  const pty = rules.target.nodePtyPrebuild;
+  return pty === null ? [] : [`node-pty/prebuilds/${pty}/spawn-helper`];
 }
 
 /** Redistributing other people's code requires their license; nothing may prune it. */
@@ -96,7 +95,12 @@ export function shouldKeep(relativePath: string, rules: PruneRules): boolean {
   // Foreign prebuilds are checked first: those directories are all `.node` files and bare
   // executables, so letting the "always keep native modules" rule below run first would let 58 MiB
   // of win32 artifacts slip in.
-  if (isForeignPrebuild(segments, rules.prebuildDir)) return false;
+  if (isForeignPrebuild(segments, rules.target.nodePtyPrebuild)) return false;
+
+  // Before the `.node` rule, because Windows prebuilds pair every binary with a PE debug database
+  // several times its size — node-pty's win32-x64 directory is 29.7 MiB, of which 28.3 MiB is
+  // `.pdb`. They are separate files that nothing loads; on macOS this rule never matches.
+  if (basename.endsWith('.pdb')) return false;
 
   if (basename.endsWith('.node')) return true;
   if (LICENSE.test(basename)) return true;
@@ -112,7 +116,8 @@ export function shouldKeep(relativePath: string, rules: PruneRules): boolean {
   return true;
 }
 
-function isForeignPrebuild(segments: readonly string[], keep: string): boolean {
+/** With `keep` null the target ships no prebuild at all, so every platform's directory is foreign. */
+function isForeignPrebuild(segments: readonly string[], keep: string | null): boolean {
   const index = segments.indexOf('prebuilds');
   if (index === -1) return false;
   const platform = segments[index + 1];

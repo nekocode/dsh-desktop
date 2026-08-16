@@ -14,7 +14,8 @@ import { cpSync, existsSync, mkdirSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { BACKEND_OUT_DIR, DSH_ENTRY } from './build-backend.ts';
-import { hostTriple, SIDECAR_BASE, sidecarFileName } from './stage-runtime.ts';
+import { SIDECAR_BASE, sidecarFileName } from './stage-runtime.ts';
+import { currentTarget, hostTag } from './target.ts';
 
 /** The line dsh prints once it is listening; the same contract `backend.rs` parses. */
 export function parseServingUrl(line: string): string | undefined {
@@ -60,7 +61,7 @@ const PROFILE = 'desktop';
 
 /** Prefer the staged sidecar — that is what ships. Fall back to this process's runtime. */
 function runtimePath(): string {
-  const name = sidecarFileName(SIDECAR_BASE, hostTriple(process.platform, process.arch));
+  const name = sidecarFileName(SIDECAR_BASE, currentTarget());
   const sidecar = join(ROOT, 'src-tauri', 'binaries', name);
   return existsSync(sidecar) ? sidecar : process.execPath;
 }
@@ -89,6 +90,15 @@ async function get(url: string): Promise<{ status: number; body: string }> {
 }
 
 async function main(): Promise<void> {
+  const target = currentTarget();
+  if (target.tag !== hostTag()) {
+    // Nothing here can run a foreign artifact, and pretending otherwise would either smoke the
+    // *host's* leftover backend — proving nothing about what ships — or fail for a reason that has
+    // nothing to do with the build. The cross artifact is verified on a real machine instead.
+    console.log(`[smoke] skipped: ${target.tag} artifact cannot run on ${hostTag()}`);
+    return;
+  }
+
   const entry = join(BACKEND, 'node_modules', DSH_ENTRY);
   if (!existsSync(entry))
     throw new Error(`no backend to smoke: ${entry} (run npm run build:backend)`);

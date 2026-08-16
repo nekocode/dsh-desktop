@@ -2,26 +2,34 @@
 
 English | [中文](README.zh.md)
 
-The official [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) wrapped as a macOS desktop app.
+The official [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) wrapped as a desktop app, for macOS and Windows.
 
-A Tauri 2 shell (system WKWebView, no bundled Chromium) + a trimmed dsh backend + dsh's own web UI.
+A Tauri 2 shell (the system WebView, no bundled Chromium) + a trimmed dsh backend + dsh's own web UI.
 **Not a single line of frontend logic is copied** — the interface is entirely upstream's `ui-*` plugins, and it follows upstream releases.
 
-| | Size |
-|---|---|
-| `npm i @deepseek-ai/dsh` as-is | 347 MB |
-| Trimmed backend | 31 MB |
-| Installed `.app` | 98 MB |
-| DMG | 36 MB |
+| | macOS arm64 | Windows x64 |
+|---|---|---|
+| `npm i @deepseek-ai/dsh` as-is | 347 MB | 347 MB |
+| Trimmed backend | 31 MB | 33 MB |
+| Installed | 98 MB | 130 MB |
+| Installer | 36 MB (DMG) | 32 MB (setup.exe) |
+
+Windows installs larger and downloads smaller: Bun's `bun.exe` is 34 MB bigger than the macOS
+build (PE keeps its symbols in a separate `.pdb`, so the strip that pays for the macOS binary has
+nothing to remove), and NSIS's solid LZMA compresses harder than the DMG's.
 
 For comparison: an Electron build would be roughly 340 MB / 100–120 MB.
 
 ## Download
 
-[**dsh-desktop.xiu.ai**](https://dsh-desktop.xiu.ai/) —
-[`DeepSeek-Harness-arm64.dmg`](https://dsh-desktop.xiu.ai/dl/latest/DeepSeek-Harness-arm64.dmg),
-macOS 11+, Apple Silicon, signed and notarized. Individual versions are on the
-[Releases](https://github.com/nekocode/dsh-desktop/releases) page.
+[**dsh-desktop.xiu.ai**](https://dsh-desktop.xiu.ai/)
+
+- [`DeepSeek-Harness-arm64.dmg`](https://dsh-desktop.xiu.ai/dl/latest/DeepSeek-Harness-arm64.dmg)
+  — macOS 11+, Apple Silicon, signed and notarized.
+- [`DeepSeek-Harness-x64-setup.exe`](https://dsh-desktop.xiu.ai/dl/latest/DeepSeek-Harness-x64-setup.exe)
+  — Windows 10 1809+, x64. Not Authenticode-signed, so SmartScreen asks once: *More info → Run anyway*.
+
+Individual versions are on the [Releases](https://github.com/nekocode/dsh-desktop/releases) page.
 
 The site is built from `web-src/` by `npm run build:web` and served as the download Worker's
 static assets — one hostname, because that hostname is already a Worker custom domain and
@@ -90,6 +98,44 @@ the directory it came from.
 The updater's public key is baked into `tauri.conf.json`. **Losing its private half means no
 installed copy can ever be updated again**, since a new key cannot be introduced to an old build.
 
+## Building the Windows installer (from macOS)
+
+```bash
+npm run app:build:win            # → dist/DeepSeek-Harness-<version>-x64-setup.exe + .sig
+npm run app:build:win -- --release  # ...and publish it
+```
+
+One-time setup:
+
+```bash
+cargo install cargo-xwin                  # MSVC CRT + Windows SDK, fetched on first use
+rustup target add x86_64-pc-windows-msvc
+brew install llvm makensis                # llvm-rc compiles the resource script; makensis builds the installer
+mkdir -p build/upstream-win32-x64
+cp build/upstream-darwin-arm64/package.json build/upstream-win32-x64/
+(cd build/upstream-win32-x64 && npm i --ignore-scripts --os=win32 --cpu=x64)
+```
+
+That last install is not optional busywork: npm resolves `optionalDependencies` against the
+platform doing the installing, so a Windows artifact needs its own staging directory or it ships
+macOS native packages. `DSH_TARGET` selects which one the build reads, and `scripts/target.ts`
+holds every per-target fact — none of them are derived from the host.
+
+Two differences from the macOS pipeline, both consequences of there being no Windows machine in the
+loop:
+
+- **`npm run smoke` skips itself.** The artifact cannot run here. It is verified on a real machine.
+- **No Authenticode signing.** The updater signature (minisign) is still produced here and is what
+  an installed copy verifies; Authenticode is the separate, unrelated thing SmartScreen looks at.
+  See *Known limitations* for why buying a certificate would not remove the warning today.
+
+The installer is renamed on its way into `dist/`: Tauri names it from `productName`, which contains
+a space, and the download Worker's route whitelist rejects those — a published URL would 404 while
+every local check passed.
+
+The Windows build ships **no node-pty**: `Bun.Terminal` drives ConPTY natively as of Bun 1.3.14, and
+`scripts/pty-shim.ts` probes for it, so nothing platform-specific has to be compiled or matched.
+
 ## What got trimmed
 
 Flip the `AGGRESSIVE` switches in `scripts/trim.ts`; every item can be reverted independently.
@@ -100,8 +146,9 @@ Flip the `AGGRESSIVE` switches in `scripts/trim.ts`; every item can be reverted 
 | `telemetry` | OpenTelemetry export | 34 MB | none (upstream defaults to DISABLED) |
 | `workflow` | multi-agent workflow orchestration | 0.5 MB | out of scope for the first release |
 
-Also cut: 59 KaTeX fonts, every sourcemap and `.d.ts` file, the node-pty prebuilds for three
-non-host platforms, and 5.5 MB of browser-only libraries — React, shiki and katex reach the
+Also cut: 59 KaTeX fonts, every sourcemap and `.d.ts` file, every node-pty prebuild but the
+target's (all of them on Windows, plus the 28 MB of `.pdb` debug databases that ship beside the
+Windows ones), and 5.5 MB of browser-only libraries — React, shiki and katex reach the
 artifact only because nft traces `@deepseek-ai` packages that no composition row loads, while the
 browser gets them from the prebuilt frontend bundle.
 
@@ -180,6 +227,12 @@ complete UI, and only fail when a session is created. `app:build` and `app:dev` 
 
 ## Known limitations
 
-- macOS arm64 only. Single-platform is the premise behind every cut.
+- macOS arm64 and Windows x64. One artifact per platform is the premise behind every cut: each
+  gets its own upstream staging directory, its own native packages and its own update manifest.
+- **The Windows installer is not Authenticode-signed**, so SmartScreen shows "Windows protected
+  your PC" on first download; *More info → Run anyway* installs it. Signing would not remove that
+  warning by itself — Microsoft removed EV certificates' instant-reputation behaviour in 2024, so
+  both OV and EV now build reputation from download volume. Auto-updates are unaffected either way:
+  the updater fetches the installer itself, so the file carries no mark-of-the-web.
 - Hot reloading of `cordis.patch.yml` is disabled (config changes need an app restart).
 - Upstream dsh is currently `0.1.0-rc.6`, itself in internal testing.

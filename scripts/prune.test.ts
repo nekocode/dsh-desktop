@@ -1,15 +1,11 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import {
-  DEFAULT_PRUNE,
-  executableExtras,
-  nativeExtras,
-  shouldKeep,
-  type PruneRules,
-} from './prune.ts';
+import { defaultPrune, executableExtras, nativeExtras, shouldKeep } from './prune.ts';
+import { TARGETS } from './target.ts';
 
-// Pin the arch: DEFAULT_PRUNE follows the host, and these paths assert one specific platform.
-const RULES: PruneRules = { ...DEFAULT_PRUNE, prebuildDir: 'darwin-arm64' };
+// Pin the target: these paths assert one specific platform, and the host must not decide the answer.
+const RULES = defaultPrune(TARGETS['darwin-arm64']);
+const WINDOWS = defaultPrune(TARGETS['win32-x64']);
 const keep = (p: string) => shouldKeep(p, RULES);
 
 test('keeps what the runtime actually reads', () => {
@@ -42,22 +38,30 @@ test('keeps src/ — koffi requires its own src implementation directory per pla
   assert.ok(keep('koffi/src/koffi/index.js'));
 });
 
-test('DEFAULT_PRUNE follows the host arch — a hard-coded one drops the prebuild actually needed', () => {
-  assert.equal(DEFAULT_PRUNE.prebuildDir, `${process.platform}-${process.arch}`);
-});
-
-test('nativeExtras adds the native artifacts nft cannot trace, varying by platform', () => {
+test('nativeExtras adds the native artifacts nft cannot trace, varying by target', () => {
   assert.deepEqual(nativeExtras(RULES), [
     'node-pty/prebuilds/darwin-arm64',
     'node-addon-require-builtin',
     'node-addon-require-builtin-darwin-arm64',
     'node-addon-native-custom-loader',
+    '@koromix/koffi-darwin-arm64',
   ]);
-  assert.ok(
-    nativeExtras({ ...RULES, prebuildDir: 'darwin-x64' }).includes(
-      'node-addon-require-builtin-darwin-x64',
-    ),
-  );
+});
+
+test('the Windows artifact carries no node-pty at all — Bun.Terminal is the pty', () => {
+  const extras = nativeExtras(WINDOWS);
+  assert.ok(!extras.some((entry) => entry.startsWith('node-pty/')));
+  assert.ok(extras.includes('node-addon-require-builtin-win32-x64-msvc'));
+  assert.ok(extras.includes('@koromix/koffi-win32-x64'));
+  // No prebuild to keep means every prebuild directory is foreign.
+  assert.ok(!shouldKeep('node-pty/prebuilds/win32-x64/conpty.node', WINDOWS));
+  assert.ok(!shouldKeep('node-pty/prebuilds/darwin-arm64/pty.node', WINDOWS));
+});
+
+test('prunes PE debug databases — 28.3 of node-pty win32-x64 prebuild 29.7 MiB', () => {
+  // Checked ahead of the "always keep .node" rule, or the pdb next to each .node would sail through.
+  assert.ok(!shouldKeep('some-pkg/build/Release/addon.pdb', RULES));
+  assert.ok(!shouldKeep('some-pkg/build/Release/addon.pdb', WINDOWS));
 });
 
 test('prunes the documentation at a package root', () => {
@@ -78,7 +82,7 @@ test("keeps LICENSE — redistributing other people's code means carrying their 
   assert.ok(keep('turndown/LICENSE.md'));
 });
 
-test('keeps only the host platform node-pty prebuild', () => {
+test('keeps only the target platform node-pty prebuild', () => {
   assert.ok(!keep('node-pty/prebuilds/win32-x64/pty.node'));
   assert.ok(!keep('node-pty/prebuilds/win32-arm64/pty.node'));
   assert.ok(!keep('node-pty/prebuilds/darwin-x64/pty.node'));
@@ -113,4 +117,6 @@ test('.node native modules are always kept, even under directories like src', ()
 
 test('executableExtras names spawn-helper — without the +x bit the pty fails with a completely unrelated error', () => {
   assert.deepEqual(executableExtras(RULES), ['node-pty/prebuilds/darwin-arm64/spawn-helper']);
+  // Windows has neither the helper nor an executable bit.
+  assert.deepEqual(executableExtras(WINDOWS), []);
 });

@@ -13,16 +13,16 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 
 import {
-  PLATFORM,
-  dmgName,
-  latestDmgName,
+  artifactName,
+  latestArtifactName,
   latestKey,
   manifestKey,
   releaseKey,
-  tarballName,
+  updaterPayloadName,
   url,
 } from './dist-paths.ts';
 import { buildManifest } from './manifest.ts';
+import { currentTarget, type Target } from './target.ts';
 
 /** R2 bucket behind dsh-desktop.xiu.ai. Pinned against `wrangler.jsonc` by `publish.test.ts`. */
 export const BUCKET = 'dsh-desktop-dist';
@@ -102,62 +102,84 @@ async function verify(key: string, file: string): Promise<void> {
  * the installed app updates from. Failing to create it must not fail the release — by the time this
  * runs, the update path is already live and correct.
  */
-function githubRelease(version: string, notes: string, dmg: string): void {
+function githubRelease(version: string, notes: string, artifact: string): void {
   const title = `v${version}`;
   try {
     execFileSync(
       'gh',
-      ['release', 'create', title, '--repo', GITHUB_REPO, '--title', title, '--notes', notes, dmg],
+      [
+        'release',
+        'create',
+        title,
+        '--repo',
+        GITHUB_REPO,
+        '--title',
+        title,
+        '--notes',
+        notes,
+        artifact,
+      ],
       { stdio: 'pipe' },
     );
     console.log(`[publish] github release ${title} created`);
   } catch {
-    // Already released (a re-run, or a release cut by hand): replace the asset instead.
-    execFileSync('gh', ['release', 'upload', title, '--repo', GITHUB_REPO, '--clobber', dmg], {
+    // Already released — a re-run, a release cut by hand, or the *other platform* published first,
+    // which is the ordinary case once there is more than one. Add or replace this asset.
+    execFileSync('gh', ['release', 'upload', title, '--repo', GITHUB_REPO, '--clobber', artifact], {
       stdio: 'pipe',
     });
     console.log(`[publish] github release ${title} asset replaced`);
   }
 }
 
-export async function publish(version: string, notes: string, distDir: string): Promise<void> {
-  const dmg = join(distDir, dmgName(version));
-  const tarball = join(distDir, tarballName(version, PLATFORM));
+export async function publish(
+  version: string,
+  notes: string,
+  distDir: string,
+  target: Target,
+): Promise<void> {
+  const artifact = join(distDir, artifactName(target, version));
+  const payloadName = updaterPayloadName(target, version);
+  const payload = join(distDir, payloadName);
   // `tauri signer sign` writes the signature next to what it signed.
-  const signature = readFileSync(`${tarball}.sig`, 'utf8').trim();
+  const signature = readFileSync(`${payload}.sig`, 'utf8').trim();
 
-  const tarballKey = releaseKey(version, tarballName(version, PLATFORM));
-  const dmgKey = releaseKey(version, dmgName(version));
+  const payloadKey = releaseKey(version, payloadName);
+  const artifactKey = releaseKey(version, artifactName(target, version));
+  // On Windows the download and the update payload are one file. Uploading it twice would work and
+  // cost twice the bytes; comparing the keys states the identity instead of assuming it.
+  const separate = payloadKey !== artifactKey;
 
   // Order is the whole design here. Immutable artifacts go up first and are verified before
   // anything points at them; the manifest — the only object a running app reads — goes last. The
   // other way round leaves a window where every client is told about a version whose bytes are
   // still 404, and an update that fails once is an update the user stops trusting.
-  put(tarballKey, tarball);
-  put(dmgKey, dmg);
-  await verify(tarballKey, tarball);
-  await verify(dmgKey, dmg);
+  put(payloadKey, payload);
+  if (separate) put(artifactKey, artifact);
+  await verify(payloadKey, payload);
+  if (separate) await verify(artifactKey, artifact);
 
   // Mutable alias for download pages, so publishing does not mean editing HTML.
-  put(latestKey(latestDmgName()), dmg);
+  put(latestKey(latestArtifactName(target)), artifact);
 
-  const manifestPath = join(distDir, `${PLATFORM}.json`);
+  const platform = target.updaterPlatform;
+  const manifestPath = join(distDir, `${platform}.json`);
   writeFileSync(
     manifestPath,
     buildManifest({
       version,
       notes,
       pubDate: new Date().toISOString(),
-      platform: PLATFORM,
-      url: url(tarballKey),
+      platform,
+      url: url(payloadKey),
       signature,
     }),
   );
-  put(manifestKey(PLATFORM), manifestPath);
-  await verify(manifestKey(PLATFORM), manifestPath);
+  put(manifestKey(platform), manifestPath);
+  await verify(manifestKey(platform), manifestPath);
 
-  githubRelease(version, notes || `DeepSeek Harness v${version}`, dmg);
-  console.log(`[publish] v${version} is live at ${url(manifestKey(PLATFORM))}`);
+  githubRelease(version, notes || `DeepSeek Harness v${version}`, artifact);
+  console.log(`[publish] v${version} is live at ${url(manifestKey(platform))}`);
 }
 
 const isMain = process.argv[1] !== undefined && resolve(process.argv[1]).endsWith('publish.ts');
@@ -168,5 +190,10 @@ if (isMain) {
     process.exit(1);
   }
   const notes = notesFile ? readFileSync(notesFile, 'utf8').trim() : '';
-  await publish(version, notes, join(resolve(import.meta.dirname, '..'), DIST_DIR));
+  await publish(
+    version,
+    notes,
+    join(resolve(import.meta.dirname, '..'), DIST_DIR),
+    currentTarget(),
+  );
 }

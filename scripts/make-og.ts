@@ -48,9 +48,13 @@ export function cardRows(): string {
     .map((row) => {
       const share = ((row.megabytes / baseline.megabytes) * 100).toFixed(1);
       const win = row.id === SIZE_HIGHLIGHT_ID ? ' win' : '';
+      // The card shows the macOS figure, and the row it highlights is the one where the two
+      // platforms differ (98 against 130). Unlabelled, a card read at a glance would state a
+      // number that is only true for half the product.
+      const label = `${strings[row.labelKey]}${row.megabytes === row.windowsMegabytes ? '' : ' · macOS'}`;
       return [
         `<div class="row${win}">`,
-        `  <span class="label">${strings[row.labelKey]}</span>`,
+        `  <span class="label">${label}</span>`,
         `  <span class="value">${row.megabytes}<span class="unit">${strings.sizeUnit}</span></span>`,
         `  <span class="bar"><i style="width:${share}%"></i></span>`,
         `</div>`,
@@ -58,6 +62,16 @@ export function cardRows(): string {
     })
     .join('\n');
 }
+
+/**
+ * The card's footer line, and the one string that lives here rather than in `strings.ts`.
+ *
+ * The card is rendered once, in English, so a translated copy of this would be maintained for
+ * nobody — which is exactly what the build's "every string is rendered" guard exists to catch.
+ * `ctaMeta` used to fill this slot; it names one platform, and on a card whose kicker reads
+ * "macOS · Windows" that contradicted itself.
+ */
+const FOOT_META = 'macOS 11+ · Windows 10 1809+';
 
 /** Chrome loads the card from a temp file, so the fonts have to be absolute `file://` URLs. */
 function fontUrl(root: string, file: string): string {
@@ -79,7 +93,7 @@ export function renderCard(template: string, root: string): string {
         claim: strings.heroClaim,
         rows: cardRows(),
         host: new URL(ORIGIN).host,
-        footMeta: strings.ctaMeta,
+        footMeta: FOOT_META,
       },
       throwOnMissing,
     ),

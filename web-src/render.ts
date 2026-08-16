@@ -7,7 +7,8 @@
  * just inserted, so the skeleton has to be built first and resolved once, whole.
  */
 
-import { PLATFORM, manifestKey } from '../scripts/dist-paths.ts';
+import { manifestKey } from '../scripts/dist-paths.ts';
+import { TARGETS } from '../scripts/target.ts';
 import { FONT_FILE } from './fonts.ts';
 import { LANG_TAG, LOCALES, LOCALE_NAME, OG_LOCALE, type Locale } from './locale.ts';
 import {
@@ -21,6 +22,7 @@ import {
   UPSTREAM,
   alternates,
   baselineMegabytes,
+  downloadById,
   homeUrl,
   pagePath,
   primaryDownload,
@@ -48,12 +50,12 @@ function escapeAttr(value: string): string {
  */
 const HREFS = {
   // Asked for, not recomputed: `DOWNLOADS` already owns where the macOS build lives, and a
-  // second `latestKey(latestDmgName())` here would keep pointing at `latest` on the day the
+  // second `latestKey(latestArtifactName(...))` here would keep pointing at `latest` on the day the
   // registry starts pointing somewhere else — with every test still green.
   dmgHref: primaryDownload().href,
   // The hero pill reads the shipping version out of the live update manifest, so the page
   // never states a version of its own. Same-origin, and the file is already published.
-  manifestHref: `/${manifestKey(PLATFORM)}`,
+  manifestHref: `/${manifestKey(TARGETS['darwin-arm64'].updaterPlatform)}`,
   iconHref: `/${STATIC_ASSETS.icon}`,
   appleTouchIconHref: `/${STATIC_ASSETS.appleTouchIcon}`,
   ogImageHref: `/${STATIC_ASSETS.ogImage}`,
@@ -72,23 +74,44 @@ const HREFS = {
 function sizeTable(locale: Locale): string {
   const strings = STRINGS[locale];
   const baseline = baselineMegabytes();
+  const share = (megabytes: number) => `${((megabytes / baseline) * 100).toFixed(1)}%`;
   return SIZE_ROWS.map((row, index) => {
-    const share = ((row.megabytes / baseline) * 100).toFixed(1);
     const highlight = row.id === SIZE_HIGHLIGHT_ID ? ' is-highlight' : '';
+    // Two bars sharing one scale, so the comparison the eye makes is the true one. Both are
+    // drawn even where the platforms agree: a row that quietly dropped to a single bar would
+    // read as "this row has no Windows number" rather than "the number is the same".
     return [
       `<li class="spec-row${highlight}" style="--i:${index}">`,
       `  <span class="spec-label">${strings[row.labelKey]}</span>`,
-      `  <span class="spec-bar"><i style="--w:${share}%"></i></span>`,
-      `  <span class="spec-value">${row.megabytes}<span class="spec-unit">${strings.sizeUnit}</span></span>`,
+      `  <span class="spec-bars">`,
+      `    <span class="spec-track"><i style="--w:${share(row.megabytes)}"></i></span>`,
+      `    <span class="spec-track is-alt"><i style="--w:${share(row.windowsMegabytes)}"></i></span>`,
+      `  </span>`,
+      `  <span class="spec-value">${row.megabytes}<span class="spec-unit">${strings.sizeUnit}</span>`,
+      `    <span class="spec-alt">${row.windowsMegabytes}<span class="spec-unit">${strings.sizeUnit}</span></span>`,
+      `  </span>`,
       `</li>`,
     ].join('\n');
   }).join('\n');
 }
 
+/** Which bar is which. Two tones with no key is a chart that has to be guessed at. */
+function sizeLegend(locale: Locale): string {
+  const strings = STRINGS[locale];
+  return [
+    `<span class="spec-key"><i></i>${strings.sizeMacOs}</span>`,
+    `<span class="spec-key is-alt"><i></i>${strings.sizeWindows}</span>`,
+  ].join('\n');
+}
+
 /**
- * The platform table. Rendered from `DOWNLOADS` rather than written out, so the day Windows
- * gains an artifact the page changes by one field — and until then it cannot accidentally
- * offer a link that would 404.
+ * The platform table. Rendered from `DOWNLOADS` rather than written out, so a platform gaining
+ * an artifact changes one field — and until it does, the table cannot accidentally offer a link
+ * that would 404.
+ *
+ * The button carries the verb only. The row already names its platform, and reusing the hero's
+ * "Download for macOS" here put that label on the Windows row the moment a second platform
+ * shipped.
  */
 function downloadTable(locale: Locale): string {
   const strings = STRINGS[locale];
@@ -99,7 +122,7 @@ function downloadTable(locale: Locale): string {
       `  <span class="dl-arch">${entry.arch}</span>`,
       entry.status === 'available'
         ? `  <span class="dl-status">${strings.statusAvailable}</span>\n` +
-          `  <a class="dl-get btn btn-sm" href="${escapeAttr(entry.href)}">${strings.ctaDownload}</a>`
+          `  <a class="dl-get btn btn-sm" href="${escapeAttr(entry.href)}">${strings.downloadAction}</a>`
         : `  <span class="dl-status">${strings.statusPlanned}</span>\n  <span class="dl-get" aria-hidden="true">—</span>`,
       `</li>`,
     ].join('\n');
@@ -138,11 +161,11 @@ function jsonLd(locale: Locale): string {
   return escapeJsonLd({
     '@context': 'https://schema.org',
     '@type': 'SoftwareApplication',
-    name: 'DeepSeek Harness for macOS',
+    name: 'DeepSeek Harness',
     url: homeUrl(locale),
     description: strings.metaDescription,
     applicationCategory: 'DeveloperApplication',
-    operatingSystem: 'macOS 11+',
+    operatingSystem: 'macOS 11+, Windows 10 1809+',
     processorRequirements: primaryDownload().arch,
     downloadUrl: `${ORIGIN}${HREFS.dmgHref}`,
     softwareHelp: HREFS.repoHref,
@@ -224,7 +247,9 @@ function substitutions(locale: Locale): Record<string, string> {
     ...localeBase('home', locale),
     seoHead: seoHead(locale),
     sizeTable: sizeTable(locale),
+    sizeLegend: sizeLegend(locale),
     downloadTable: downloadTable(locale),
+    windowsHref: downloadById('windows-x64').href,
   };
 }
 

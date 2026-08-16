@@ -2,26 +2,33 @@
 
 [English](README.md) | 中文
 
-把官方 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) 封装成 macOS 桌面应用。
+把官方 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) 封装成桌面应用，macOS 与 Windows。
 
-Tauri 2 壳（系统 WKWebView，不打包 Chromium）+ 裁剪过的 dsh 后端 + dsh 自己的 web UI。
+Tauri 2 壳（系统 WebView，不打包 Chromium）+ 裁剪过的 dsh 后端 + dsh 自己的 web UI。
 **不复制一行前端逻辑**，界面完全是上游的 `ui-*` 插件，随上游升级。
 
-| | 体积 |
-|---|---|
-| `npm i @deepseek-ai/dsh` 原样 | 347 MB |
-| 裁剪后的 backend | 31 MB |
-| 安装后 `.app` | 98 MB |
-| DMG | 36 MB |
+| | macOS arm64 | Windows x64 |
+|---|---|---|
+| `npm i @deepseek-ai/dsh` 原样 | 347 MB | 347 MB |
+| 裁剪后的 backend | 31 MB | 33 MB |
+| 安装后 | 98 MB | 130 MB |
+| 安装包 | 36 MB（DMG） | 32 MB（setup.exe） |
+
+Windows 装得更大、下得更小：`bun.exe` 比 macOS 版大 34 MB（PE 的符号在独立 `.pdb` 里，
+macOS 上那一刀 strip 在这里无处可砍），而 NSIS 的 solid LZMA 比 DMG 压得更狠。
 
 对照：Electron 方案约 340 MB / 100–120 MB。
 
 ## 下载
 
-[**dsh-desktop.xiu.ai**](https://dsh-desktop.xiu.ai/) ——
-[`DeepSeek-Harness-arm64.dmg`](https://dsh-desktop.xiu.ai/dl/latest/DeepSeek-Harness-arm64.dmg)，
-macOS 11+，Apple Silicon，已签名并公证。历史版本在
-[Releases](https://github.com/nekocode/dsh-desktop/releases) 页。
+[**dsh-desktop.xiu.ai**](https://dsh-desktop.xiu.ai/)
+
+- [`DeepSeek-Harness-arm64.dmg`](https://dsh-desktop.xiu.ai/dl/latest/DeepSeek-Harness-arm64.dmg)
+  —— macOS 11+，Apple Silicon，已签名并公证。
+- [`DeepSeek-Harness-x64-setup.exe`](https://dsh-desktop.xiu.ai/dl/latest/DeepSeek-Harness-x64-setup.exe)
+  —— Windows 10 1809+，x64。没做 Authenticode 签名，SmartScreen 会问一次：**更多信息 → 仍要运行**。
+
+历史版本在 [Releases](https://github.com/nekocode/dsh-desktop/releases) 页。
 
 站点由 `npm run build:web` 从 `web-src/` 生成，作为下载 Worker 的静态资源分发 —— 只有一个域名，
 因为这个域名已经被那个 Worker 以 custom domain 独占，别的东西抢不走。
@@ -84,6 +91,41 @@ npm run deploy:dist          # 重新部署下载 Worker（很少用到）
 更新公钥烤在 `tauri.conf.json` 里。**私钥丢了，所有已安装的副本就永远更新不了了** ——
 新钥匙塞不进旧包。
 
+## 出 Windows 安装包（在 macOS 上）
+
+```bash
+npm run app:build:win               # → dist/DeepSeek-Harness-<version>-x64-setup.exe + .sig
+npm run app:build:win -- --release  # 顺带发布
+```
+
+一次性准备：
+
+```bash
+cargo install cargo-xwin                  # 首次使用时自动拉 MSVC CRT 与 Windows SDK
+rustup target add x86_64-pc-windows-msvc
+brew install llvm makensis                # llvm-rc 编资源脚本，makensis 出安装包
+mkdir -p build/upstream-win32-x64
+cp build/upstream-darwin-arm64/package.json build/upstream-win32-x64/
+(cd build/upstream-win32-x64 && npm i --ignore-scripts --os=win32 --cpu=x64)
+```
+
+最后那次安装不是多余的：npm 按**执行安装的那台机器**解析 `optionalDependencies`，
+所以 Windows 产物必须有自己的暂存目录，否则会把 macOS 的原生包装进去。
+`DSH_TARGET` 决定构建读哪一个，`scripts/target.ts` 收着每一条按目标不同的事实 ——
+没有一条是从宿主推出来的。
+
+和 macOS 流程的两处不同，都因为这条链路里没有 Windows 机器：
+
+- **`npm run smoke` 自己跳过。** 产物在这里跑不起来，验证放到真机上。
+- **不做 Authenticode 签名。** 更新签名（minisign）照出，那是已安装副本会校验的东西；
+  Authenticode 是另一回事，SmartScreen 看的是它。为什么现在买证书也没用，见「已知限制」。
+
+安装包在进 `dist/` 的路上会改名：Tauri 按 `productName` 命名，里面**带空格**，
+而下载 Worker 的路由白名单不收 —— 本地全绿，上线 404。
+
+Windows 版**不带 node-pty**：Bun 1.3.14 起 `Bun.Terminal` 原生驱动 ConPTY，
+`scripts/pty-shim.ts` 本来就是能力探测，所以没有任何需要按平台编译或匹配的东西。
+
 ## 裁剪掉了什么
 
 改 `scripts/trim.ts` 的 `AGGRESSIVE` 开关，每一项都能单独回退。
@@ -94,7 +136,8 @@ npm run deploy:dist          # 重新部署下载 Worker（很少用到）
 | `telemetry` | OpenTelemetry 导出 | 34 MB | 无（上游默认就是 DISABLED） |
 | `workflow` | 多智能体 workflow 编排 | 0.5 MB | 首版不做 |
 
-还剪掉了：59 个 KaTeX 字体、全部 sourcemap 和 `.d.ts`、三个非本机平台的 node-pty prebuild，以及 5.5 MB 纯浏览器库 —— React、shiki、katex 进产物，
+还剪掉了：59 个 KaTeX 字体、全部 sourcemap 和 `.d.ts`、除目标平台外的全部 node-pty prebuild
+（Windows 上是**全部**，外加它们旁边那 28 MB 的 `.pdb` 调试符号），以及 5.5 MB 纯浏览器库 —— React、shiki、katex 进产物，
 只是因为 nft 追踪了没有任何组合行加载的 `@deepseek-ai` 包，而浏览器是从预构建前端 bundle 拿的。
 
 另有两个依赖是**换掉**而不是砍掉 —— 一个是插件删不得，一个是工具值得留：
@@ -171,6 +214,11 @@ npm run smoke   # 启动产物、建会话、取客户端 bundle
 
 ## 已知限制
 
-- 仅 macOS arm64。单平台是所有裁剪的前提。
+- macOS arm64 与 Windows x64。「一个平台一份产物」是所有裁剪的前提：各自有独立的上游暂存目录、
+  各自的原生包、各自的更新清单。
+- **Windows 安装包没做 Authenticode 签名**，SmartScreen 首次下载会弹「Windows 已保护你的电脑」，
+  点**更多信息 → 仍要运行**即可安装。签名也去不掉这个提示 —— Microsoft 2024 年移除了
+  EV 证书「立即获得信誉」的行为，OV 和 EV 现在都要靠下载量攒。自动更新不受影响：
+  updater 自己下载安装包，文件不带 mark-of-the-web。
 - 热重载 `cordis.patch.yml` 被关掉了（改配置需重启应用）。
 - 上游 dsh 目前是 `0.1.0-rc.6`，本身处于 internal testing 阶段。

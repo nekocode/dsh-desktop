@@ -7,7 +7,11 @@ rust-version = "1.77"
 
 [lib]
 name = "dsh_desktop_lib"
-crate-type = ["staticlib", "cdylib", "rlib"]
+# `rlib` only. Tauri's template also emits `staticlib`/`cdylib` for iOS/Android, which this project
+# does not build — and on `x86_64-pc-windows-msvc` a `cdylib` cannot be linked against the static
+# CRT (`libcmt.lib` and `libvcruntime.lib` collide on `abort`/`operator delete`), so keeping the two
+# unused outputs would cost the Windows build its freedom from the VC++ redistributable.
+crate-type = ["rlib"]
 
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
